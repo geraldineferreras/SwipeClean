@@ -3,6 +3,7 @@ import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { resolveMediaThumbnailUri } from '@/constants/demoVideo';
 import { theme } from '@/constants/theme';
+import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import type { QuickCleanAlbum } from '@/types/cleanup';
 import { formatCount } from '@/utils/formatBytes';
 
@@ -11,16 +12,17 @@ interface AlbumGridProps {
   onAlbumPress: (album: QuickCleanAlbum) => void;
 }
 
-const NUM_COLUMNS = 2;
-
 export function AlbumGrid({ albums, onAlbumPress }: AlbumGridProps) {
+  const { albumColumns, scrollBottomPadding } = useResponsiveLayout();
+
   return (
     <FlatList
-      columnWrapperStyle={styles.row}
-      contentContainerStyle={styles.content}
+      key={`album-grid-${albumColumns}`}
+      columnWrapperStyle={albumColumns > 1 ? styles.row : undefined}
+      contentContainerStyle={[styles.content, { paddingBottom: scrollBottomPadding }]}
       data={albums}
       keyExtractor={(album) => album.id}
-      numColumns={NUM_COLUMNS}
+      numColumns={albumColumns}
       renderItem={({ item }) => (
         <Pressable
           onPress={() => onAlbumPress(item)}
@@ -57,9 +59,7 @@ export function AlbumGrid({ albums, onAlbumPress }: AlbumGridProps) {
 
 const styles = StyleSheet.create({
   content: {
-    paddingBottom: theme.spacing.xxl,
-    paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing.md,
+    paddingTop: theme.spacing.sm,
   },
   countBadge: {
     backgroundColor: 'rgba(17, 24, 39, 0.72)',
@@ -104,6 +104,7 @@ const styles = StyleSheet.create({
   tile: {
     flex: 1,
     gap: theme.spacing.sm,
+    minWidth: 0,
   },
   tilePressed: {
     opacity: 0.85,

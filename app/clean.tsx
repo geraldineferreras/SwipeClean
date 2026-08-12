@@ -9,6 +9,7 @@ import { MediaMetadata } from '@/components/clean/MediaMetadata';
 import { ProgressIndicator } from '@/components/clean/ProgressIndicator';
 import { SwipeCardStack, type SwipeCardRef } from '@/components/clean/SwipeCard';
 import { CLEANING_BATCH_SIZE } from '@/utils/mediaHelpers';
+import { HOME_ROUTE } from '@/constants/routes';
 import { theme } from '@/constants/theme';
 import { useCleanupSessionContext } from '@/contexts/CleanupSessionContext';
 import { useMediaLibrary } from '@/hooks/useMediaLibrary';
@@ -146,7 +147,7 @@ export default function CleanScreen() {
     }
 
     if (markedForDeletion.length === 0) {
-      router.replace('/');
+      router.replace(HOME_ROUTE);
     }
   }, [isComplete, markedForDeletion.length]);
 

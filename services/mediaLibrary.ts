@@ -135,7 +135,9 @@ export async function fetchLibrarySummary(): Promise<LibrarySummary | null> {
   return {
     photoCount: counts.photoCount,
     videoCount: counts.videoCount,
+    otherCount: mockLibrarySummary.otherCount,
     storageUsedBytes: mockLibrarySummary.storageUsedBytes,
+    totalStorageBytes: mockLibrarySummary.totalStorageBytes,
     potentialSavingsBytes: mockLibrarySummary.potentialSavingsBytes,
     quickClean: mockLibrarySummary.quickClean,
   };

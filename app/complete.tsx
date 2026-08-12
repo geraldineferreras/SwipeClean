@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { PrimaryButton } from '@/components/ui/PrimaryButton';
+import { HOME_ROUTE } from '@/constants/routes';
 import { theme } from '@/constants/theme';
 import { useCleanupSessionContext } from '@/contexts/CleanupSessionContext';
 import { formatBytes } from '@/utils/formatBytes';
@@ -18,7 +19,7 @@ export default function CompleteScreen() {
           <Text style={styles.message}>Your library is a little tidier.</Text>
           <PrimaryButton
             label="Back to home"
-            onPress={() => router.replace('/')}
+            onPress={() => router.replace(HOME_ROUTE)}
             style={styles.button}
           />
         </View>
@@ -50,7 +51,7 @@ export default function CompleteScreen() {
 
         <PrimaryButton
           label="Back to home"
-          onPress={() => router.replace('/')}
+          onPress={() => router.replace(HOME_ROUTE)}
           style={styles.button}
         />
 

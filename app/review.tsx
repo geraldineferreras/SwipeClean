@@ -7,6 +7,7 @@ import { ReviewActions } from '@/components/review/ReviewActions';
 import { ReviewGrid } from '@/components/review/ReviewGrid';
 import { ReviewSummary } from '@/components/review/ReviewSummary';
 import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
+import { HOME_ROUTE } from '@/constants/routes';
 import { theme } from '@/constants/theme';
 import { useCleanupSessionContext } from '@/contexts/CleanupSessionContext';
 import { deleteMarkedAssets } from '@/services/deletionService';
@@ -66,7 +67,7 @@ export default function ReviewScreen() {
 
   const handleKeepEverything = useCallback(() => {
     resetSession();
-    router.replace('/');
+    router.replace(HOME_ROUTE);
   }, [resetSession]);
 
   const performDelete = useCallback(async () => {
@@ -123,7 +124,7 @@ export default function ReviewScreen() {
           <Text style={styles.emptyMessage}>
             You have not marked any items for deletion in this session.
           </Text>
-          <Pressable onPress={() => router.replace('/')} style={styles.backLink}>
+          <Pressable onPress={() => router.replace(HOME_ROUTE)} style={styles.backLink}>
             <Text style={styles.backLinkText}>Back to home</Text>
           </Pressable>
         </View>

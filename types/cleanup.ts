@@ -2,12 +2,16 @@ export interface QuickCleanCounts {
   screenshots: number;
   duplicates: number;
   largeVideos: number;
+  blurryPhotos: number;
+  favorites: number;
 }
 
 export interface LibrarySummary {
   photoCount: number;
   videoCount: number;
+  otherCount: number;
   storageUsedBytes: number;
+  totalStorageBytes: number;
   potentialSavingsBytes: number;
   quickClean: QuickCleanCounts;
 }

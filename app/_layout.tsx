@@ -19,7 +19,9 @@ export default function RootLayout() {
               contentStyle: { backgroundColor: theme.colors.background },
               animation: 'slide_from_right',
             }}
-          />
+          >
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          </Stack>
           <StatusBar style="dark" />
         </GestureHandlerRootView>
       </CleanupSessionProvider>

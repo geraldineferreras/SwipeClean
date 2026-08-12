@@ -1,0 +1,295 @@
+import { useCallback, useMemo, useState } from 'react';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import Ionicons from '@expo/vector-icons/Ionicons';
+
+import { ScreenScrollView } from '@/components/layout/ScreenScrollView';
+import { TrashItemGrid } from '@/components/trash/TrashItemGrid';
+import { TrashSelectionBar } from '@/components/trash/TrashSelectionBar';
+import { TrashSummaryCard } from '@/components/trash/TrashSummaryCard';
+import { getTrashTotals, mockTrashItems } from '@/constants/mockTrash';
+import { theme } from '@/constants/theme';
+import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
+import { formatBytes } from '@/utils/formatBytes';
+
+export default function TrashTabScreen() {
+  const { screenTitleSize, settingsButtonSize } = useResponsiveLayout();
+  const [items, setItems] = useState(mockTrashItems);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(
+    () => new Set(mockTrashItems.map((item) => item.id)),
+  );
+
+  const totals = useMemo(() => getTrashTotals(items), [items]);
+
+  const selectedItems = useMemo(
+    () => items.filter((item) => selectedIds.has(item.id)),
+    [items, selectedIds],
+  );
+
+  const selectedBytes = useMemo(
+    () => selectedItems.reduce((sum, item) => sum + item.fileSizeBytes, 0),
+    [selectedItems],
+  );
+
+  const toggleItem = useCallback((id: string) => {
+    setSelectedIds((previous) => {
+      const next = new Set(previous);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleRestore = useCallback(() => {
+    setItems((previous) => previous.filter((item) => !selectedIds.has(item.id)));
+    setSelectedIds(new Set());
+  }, [selectedIds]);
+
+  const handleDelete = useCallback(() => {
+    Alert.alert(
+      'Delete permanently?',
+      `This will permanently remove ${selectedItems.length} items (${formatBytes(selectedBytes)}).`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: () => {
+            setItems((previous) => previous.filter((item) => !selectedIds.has(item.id)));
+            setSelectedIds(new Set());
+          },
+        },
+      ],
+    );
+  }, [selectedBytes, selectedIds, selectedItems.length]);
+
+  const handleDeleteAll = useCallback(() => {
+    Alert.alert('Delete all now?', 'All items in Trash will be permanently deleted.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete All',
+        style: 'destructive',
+        onPress: () => {
+          setItems([]);
+          setSelectedIds(new Set());
+        },
+      },
+    ]);
+  }, []);
+
+  return (
+    <SafeAreaView edges={['top']} style={styles.safeArea}>
+      <View style={styles.container}>
+        <ScreenScrollView
+          innerStyle={styles.scrollInner}
+          showsVerticalScrollIndicator={false}
+          style={styles.flex}
+        >
+          <View style={styles.header}>
+            <View style={styles.headerText}>
+              <Text style={[styles.title, { fontSize: screenTitleSize }]}>Trash</Text>
+              <Text style={styles.subtitle}>Items removed by you</Text>
+            </View>
+            <Pressable
+              style={[
+                styles.settingsButton,
+                { height: settingsButtonSize, width: settingsButtonSize },
+              ]}
+            >
+              <Ionicons color={theme.colors.textSecondary} name="settings-outline" size={22} />
+            </Pressable>
+          </View>
+
+          <TrashSummaryCard itemCount={totals.count} totalBytes={totals.bytes} />
+
+          <View style={styles.infoBanner}>
+            <View style={styles.infoRow}>
+              <Ionicons color={theme.colors.accent} name="shield-checkmark-outline" size={18} />
+              <Text style={styles.infoText}>
+                Items in Trash are safe and can be restored. They will be permanently deleted after
+                7 days.
+              </Text>
+            </View>
+            <Text style={styles.infoLink}>Learn more</Text>
+          </View>
+
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Recently Removed</Text>
+            <View style={styles.sectionActions}>
+              <Text style={styles.selectLabel}>Select</Text>
+              <Ionicons color={theme.colors.textMuted} name="filter-outline" size={18} />
+            </View>
+          </View>
+
+          {items.length > 0 ? (
+            <TrashItemGrid items={items} onToggleItem={toggleItem} selectedIds={selectedIds} />
+          ) : (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyTitle}>Trash is empty</Text>
+              <Text style={styles.emptyText}>Deleted items will appear here for 7 days.</Text>
+            </View>
+          )}
+
+          {items.length > 0 ? (
+            <View style={styles.tipBanner}>
+              <View style={styles.tipRow}>
+                <Ionicons color="#CA8A04" name="bulb-outline" size={18} />
+                <Text style={styles.tipText}>
+                  Don&apos;t want to wait? You can delete these items now to free up space.
+                </Text>
+              </View>
+              <Pressable onPress={handleDeleteAll} style={styles.tipButton}>
+                <Text style={styles.tipButtonText}>Delete All Now</Text>
+              </Pressable>
+            </View>
+          ) : null}
+        </ScreenScrollView>
+
+        <TrashSelectionBar
+          onDelete={handleDelete}
+          onRestore={handleRestore}
+          selectedBytes={selectedBytes}
+          selectedCount={selectedItems.length}
+        />
+      </View>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+  flex: {
+    flex: 1,
+  },
+  header: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  headerText: {
+    flex: 1,
+    gap: 2,
+    minWidth: 0,
+  },
+  emptyState: {
+    alignItems: 'center',
+    gap: theme.spacing.xs,
+    paddingVertical: theme.spacing.xl,
+  },
+  emptyText: {
+    color: theme.colors.textSecondary,
+    fontSize: theme.typography.body,
+    textAlign: 'center',
+  },
+  emptyTitle: {
+    color: theme.colors.textPrimary,
+    fontSize: theme.typography.subtitle,
+    fontWeight: '700',
+  },
+  infoBanner: {
+    backgroundColor: theme.colors.accentSoft,
+    borderRadius: theme.radius.md,
+    gap: theme.spacing.sm,
+    padding: theme.spacing.md,
+  },
+  infoLink: {
+    color: theme.colors.accent,
+    fontSize: theme.typography.caption,
+    fontWeight: '700',
+    marginLeft: 26,
+  },
+  infoRow: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    gap: theme.spacing.sm,
+  },
+  infoText: {
+    color: theme.colors.textSecondary,
+    flex: 1,
+    fontSize: theme.typography.caption,
+    lineHeight: 18,
+  },
+  safeArea: {
+    backgroundColor: theme.colors.background,
+    flex: 1,
+  },
+  sectionActions: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: theme.spacing.sm,
+  },
+  sectionHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  sectionTitle: {
+    color: theme.colors.textPrimary,
+    fontSize: theme.typography.body,
+    fontWeight: '700',
+  },
+  selectLabel: {
+    color: theme.colors.textMuted,
+    fontSize: theme.typography.caption,
+    fontWeight: '600',
+  },
+  scrollInner: {
+    gap: theme.spacing.md,
+    paddingBottom: theme.spacing.md,
+  },
+  settingsButton: {
+    alignItems: 'center',
+    backgroundColor: theme.colors.surface,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.md,
+    borderWidth: 1,
+    flexShrink: 0,
+    justifyContent: 'center',
+  },
+  subtitle: {
+    color: theme.colors.textSecondary,
+    fontSize: theme.typography.caption,
+  },
+  tipBanner: {
+    backgroundColor: theme.colors.surface,
+    borderColor: theme.colors.border,
+    borderRadius: theme.radius.lg,
+    borderWidth: 1,
+    gap: theme.spacing.sm,
+    padding: theme.spacing.md,
+  },
+  tipButton: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#FEE2E2',
+    borderRadius: theme.radius.pill,
+    marginLeft: 26,
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.xs,
+  },
+  tipButtonText: {
+    color: theme.colors.delete,
+    fontSize: theme.typography.caption,
+    fontWeight: '700',
+  },
+  tipRow: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    gap: theme.spacing.sm,
+  },
+  tipText: {
+    color: theme.colors.textSecondary,
+    flex: 1,
+    fontSize: theme.typography.caption,
+    lineHeight: 18,
+  },
+  title: {
+    color: theme.colors.textPrimary,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+  },
+});
