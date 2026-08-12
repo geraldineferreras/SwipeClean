@@ -1,0 +1,42 @@
+{
+  "expo": {
+    "name": "SwipeClean",
+    "slug": "swipe-clean",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "swipeclean",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.swipeclean.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#F8F9FB"
+      },
+      "package": "com.swipeclean.app"
+    },
+    "plugins": [
+      "expo-dev-client",
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#F8F9FB"
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "SwipeClean needs access to your photos and videos so you can review and clean your camera roll.",
+          "savePhotosPermission": "Allow SwipeClean to save photos to your library.",
+          "granularPermissions": ["photo", "video"]
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}
