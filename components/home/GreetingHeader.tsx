@@ -1,6 +1,8 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { router } from 'expo-router';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { SETTINGS_ROUTE } from '@/constants/routes';
 import { theme } from '@/constants/theme';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { getTimeOfDayGreeting } from '@/utils/greeting';
@@ -15,6 +17,8 @@ export function GreetingHeader({ onSettingsPress }: GreetingHeaderProps) {
   const titleSize = font(isCompact ? 26 : 30);
   const lineHeight = font(isCompact ? 32 : 36);
 
+  const handleSettingsPress = onSettingsPress ?? (() => router.push(SETTINGS_ROUTE));
+
   return (
     <View style={styles.container}>
       <View style={styles.textColumn}>
@@ -28,7 +32,7 @@ export function GreetingHeader({ onSettingsPress }: GreetingHeaderProps) {
         accessibilityLabel="Settings"
         accessibilityRole="button"
         hitSlop={8}
-        onPress={onSettingsPress}
+        onPress={handleSettingsPress}
         style={({ pressed }) => [
           styles.settingsButton,
           { height: settingsButtonSize, width: settingsButtonSize },

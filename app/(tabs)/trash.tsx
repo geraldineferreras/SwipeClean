@@ -1,3 +1,4 @@
+import { router } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -8,6 +9,7 @@ import { TrashItemGrid } from '@/components/trash/TrashItemGrid';
 import { TrashSelectionBar } from '@/components/trash/TrashSelectionBar';
 import { TrashSummaryCard } from '@/components/trash/TrashSummaryCard';
 import { getTrashTotals, mockTrashItems } from '@/constants/mockTrash';
+import { SETTINGS_ROUTE } from '@/constants/routes';
 import { theme } from '@/constants/theme';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { formatBytes } from '@/utils/formatBytes';
@@ -94,6 +96,7 @@ export default function TrashTabScreen() {
               <Text style={styles.subtitle}>Items removed by you</Text>
             </View>
             <Pressable
+              onPress={() => router.push(SETTINGS_ROUTE)}
               style={[
                 styles.settingsButton,
                 { height: settingsButtonSize, width: settingsButtonSize },

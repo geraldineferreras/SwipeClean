@@ -11,6 +11,7 @@ import {
   INSIGHTS_STORAGE_SEGMENTS,
 } from '@/constants/insightsData';
 import { mockLibrarySummary } from '@/constants/mockLibraryStats';
+import { SETTINGS_ROUTE } from '@/constants/routes';
 import { theme } from '@/constants/theme';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { formatBytes, formatCount } from '@/utils/formatBytes';
@@ -47,6 +48,7 @@ export default function InsightsTabScreen() {
             <Text style={styles.subtitle}>Understand your library and free up more space.</Text>
           </View>
           <Pressable
+            onPress={() => router.push(SETTINGS_ROUTE)}
             style={[
               styles.settingsButton,
               { height: settingsButtonSize, width: settingsButtonSize },
