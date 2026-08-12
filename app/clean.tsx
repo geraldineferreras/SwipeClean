@@ -167,6 +167,10 @@ export default function CleanScreen() {
     }
   }, [isComplete]);
 
+  useEffect(() => {
+    setIsAnimating(false);
+  }, [currentItem?.id]);
+
   const handleDecision = useCallback(
     (decision: 'keep' | 'delete') => {
       recordDecision(decision);

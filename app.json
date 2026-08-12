@@ -31,9 +31,13 @@
         {
           "photosPermission": "SwipeClean needs access to your photos and videos so you can review and clean your camera roll.",
           "savePhotosPermission": "Allow SwipeClean to save photos to your library.",
-          "granularPermissions": ["photo", "video"]
+          "granularPermissions": [
+            "photo",
+            "video"
+          ]
         }
-      ]
+      ],
+      "expo-video"
     ],
     "experiments": {
       "typedRoutes": true

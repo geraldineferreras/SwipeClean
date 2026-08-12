@@ -2,14 +2,49 @@ import { Image } from 'expo-image';
 import { memo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
+import { SwipeVideoPlayer } from '@/components/clean/SwipeVideoPlayer';
+import { isDemoVideoUri } from '@/constants/demoVideo';
 import { theme } from '@/constants/theme';
 import type { SwipeItem } from '@/types/media';
+import { formatDuration } from '@/utils/formatDuration';
 
 interface PhotoCardProps {
+  activeItemId?: string;
+  isFront?: boolean;
+  isPlaybackActive?: boolean;
+  isVideoMuted?: boolean;
   item: SwipeItem;
+  onToggleVideoMute?: () => void;
+  playRequestId?: number;
 }
 
-export const PhotoCard = memo(function PhotoCard({ item }: PhotoCardProps) {
+export const PhotoCard = memo(function PhotoCard({
+  item,
+  activeItemId,
+  isFront = false,
+  isPlaybackActive = false,
+  isVideoMuted = true,
+  onToggleVideoMute,
+  playRequestId = 0,
+}: PhotoCardProps) {
+  const isVideo = item.mediaType === 'video';
+  const isActiveVideo =
+    isVideo && isFront && item.id === activeItemId && isPlaybackActive;
+
+  if (isActiveVideo && onToggleVideoMute) {
+    return (
+      <SwipeVideoPlayer
+        key={item.id}
+        duration={item.duration}
+        isActive={isPlaybackActive}
+        isMuted={isVideoMuted}
+        onToggleMute={onToggleVideoMute}
+        playRequestId={playRequestId}
+        uri={item.uri}
+      />
+    );
+  }
+
   return (
     <View style={styles.container}>
       <Image
@@ -18,13 +53,14 @@ export const PhotoCard = memo(function PhotoCard({ item }: PhotoCardProps) {
         placeholder={theme.colors.border}
         placeholderContentFit="cover"
         priority="high"
-        source={{ uri: item.uri }}
+        recyclingKey={item.id}
+        source={{ uri: isDemoVideoUri(item.uri) ? 'https://picsum.photos/seed/swipeclean5/900/1200' : item.uri }}
         style={styles.image}
         transition={0}
       />
-      {item.mediaType === 'video' ? (
-        <View style={styles.videoBadge}>
-          <Text style={styles.videoBadgeText}>VIDEO</Text>
+      {isVideo ? (
+        <View style={styles.durationBadge}>
+          <Text style={styles.durationText}>{formatDuration(item.duration)}</Text>
         </View>
       ) : null}
     </View>
@@ -37,11 +73,7 @@ const styles = StyleSheet.create({
     flex: 1,
     overflow: 'hidden',
   },
-  image: {
-    height: '100%',
-    width: '100%',
-  },
-  videoBadge: {
+  durationBadge: {
     backgroundColor: 'rgba(17, 24, 39, 0.72)',
     borderRadius: theme.radius.pill,
     left: theme.spacing.md,
@@ -50,10 +82,14 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: theme.spacing.md,
   },
-  videoBadgeText: {
+  durationText: {
     color: '#FFFFFF',
     fontSize: theme.typography.label,
     fontWeight: '700',
-    letterSpacing: 1,
+    letterSpacing: 0.5,
+  },
+  image: {
+    height: '100%',
+    width: '100%',
   },
 });

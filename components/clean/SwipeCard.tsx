@@ -30,6 +30,7 @@ const SCREEN_WIDTH = Dimensions.get('window').width;
 const SWIPE_THRESHOLD = SCREEN_WIDTH * 0.28;
 const OFFSCREEN_DISTANCE = SCREEN_WIDTH * 1.4;
 const FLY_OFF_DURATION = 280;
+const HIDE_CARD_DISTANCE = SCREEN_WIDTH * 0.55;
 const CARD_SLOTS = [0, 1] as const;
 
 export interface SwipeCardRef {
@@ -62,19 +63,32 @@ export function SwipeCardStack({
 
   const [frontIndex, setFrontIndex] = useState(0);
   const [slots, setSlots] = useState<CardSlots>([currentItem, nextItem]);
+  const [advanceGeneration, setAdvanceGeneration] = useState(0);
+  const [isFlyingOff, setIsFlyingOff] = useState(false);
+  const [isVideoMuted, setIsVideoMuted] = useState(true);
+  const [playRequestId, setPlayRequestId] = useState(0);
+
   const frontIndexRef = useRef(frontIndex);
   frontIndexRef.current = frontIndex;
 
-  // Reset gesture state only after the back card is promoted to front.
-  useLayoutEffect(() => {
-    cancelAnimation(translateX);
-    cancelAnimation(translateY);
-    translateX.value = 0;
-    translateY.value = 0;
-    overlayEnabled.value = 0;
-  }, [frontIndex, overlayEnabled, translateX, translateY]);
+  const pendingDecisionRef = useRef<'keep' | 'delete' | null>(null);
+  const isAdvancingRef = useRef(false);
 
+  const requestVideoPlayback = useCallback(() => {
+    setPlayRequestId((previous) => previous + 1);
+  }, []);
+
+  const toggleVideoMute = useCallback(() => {
+    setIsVideoMuted((previous) => !previous);
+    requestVideoPlayback();
+  }, [requestVideoPlayback]);
+
+  // Keep slot data in sync when not mid-advance (undo, initial load, etc.).
   useEffect(() => {
+    if (isAdvancingRef.current) {
+      return;
+    }
+
     setSlots((previous) => {
       const frontSlot = frontIndexRef.current;
       const frontItem = previous[frontSlot];
@@ -96,47 +110,88 @@ export function SwipeCardStack({
         return updated;
       }
 
-      setFrontIndex(0);
       frontIndexRef.current = 0;
+      setFrontIndex(0);
       return [currentItem, nextItem];
     });
   }, [currentItem, nextItem]);
 
+  // After fly-off: unmount swiped card, reset position, promote back card, advance session.
+  useLayoutEffect(() => {
+    if (pendingDecisionRef.current === null) {
+      return;
+    }
+
+    const decision = pendingDecisionRef.current;
+    pendingDecisionRef.current = null;
+
+    cancelAnimation(translateX);
+    cancelAnimation(translateY);
+    overlayEnabled.value = 0;
+
+    // Reset while the swiped card is already gone — it cannot snap back to center.
+    translateX.value = 0;
+    translateY.value = 0;
+    isAnimating.value = false;
+    setIsFlyingOff(false);
+
+    const nextFront = 1 - frontIndexRef.current;
+    frontIndexRef.current = nextFront;
+    setFrontIndex(nextFront);
+
+    isAdvancingRef.current = true;
+    onDecision(decision);
+    setPlayRequestId((previous) => previous + 1);
+    isAdvancingRef.current = false;
+  }, [advanceGeneration, isAnimating, onDecision, overlayEnabled, translateX, translateY]);
+
+  useEffect(() => {
+    if (currentItem.mediaType !== 'video') {
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      requestVideoPlayback();
+    }, 200);
+
+    return () => clearTimeout(timer);
+  }, [currentItem.id, currentItem.mediaType, requestVideoPlayback]);
+
   useEffect(() => {
     for (const item of slots) {
-      if (item?.uri) {
+      if (item?.uri?.startsWith('http')) {
         void Image.prefetch(item.uri);
       }
     }
   }, [slots]);
 
-  const handleAdvance = useCallback(
-    (decision: 'keep' | 'delete') => {
-      const outgoingSlot = frontIndexRef.current;
-      const nextFront = 1 - outgoingSlot;
+  const beginAdvance = useCallback((decision: 'keep' | 'delete') => {
+    pendingDecisionRef.current = decision;
 
-      // Drop the swiped card immediately so it cannot reappear as the back card.
-      setSlots((previous) => {
-        const updated: CardSlots = [previous[0], previous[1]];
-        updated[outgoingSlot] = null;
-        return updated;
-      });
+    const outgoingSlot = frontIndexRef.current;
+    setSlots((previous) => {
+      const updated: CardSlots = [previous[0], previous[1]];
+      updated[outgoingSlot] = null;
+      return updated;
+    });
 
-      frontIndexRef.current = nextFront;
-      setFrontIndex(nextFront);
-      onDecision(decision);
-    },
-    [onDecision],
-  );
+    setAdvanceGeneration((previous) => previous + 1);
+  }, []);
 
   const completeFlyOff = useCallback(
     (decision: 'keep' | 'delete') => {
       overlayEnabled.value = 0;
-      isAnimating.value = false;
-      handleAdvance(decision);
+      beginAdvance(decision);
     },
-    [handleAdvance, isAnimating, overlayEnabled],
+    [beginAdvance, overlayEnabled],
   );
+
+  const snapBack = useCallback(() => {
+    overlayEnabled.value = withTiming(0, { duration: 120 });
+    translateX.value = withSpring(0, { damping: 22, stiffness: 240 });
+    translateY.value = withSpring(0, { damping: 22, stiffness: 240 });
+    setIsFlyingOff(false);
+  }, [overlayEnabled, translateX, translateY]);
 
   const flyOff = useCallback(
     (decision: 'keep' | 'delete') => {
@@ -145,6 +200,7 @@ export function SwipeCardStack({
       }
 
       isAnimating.value = true;
+      setIsFlyingOff(true);
       overlayEnabled.value = 1;
 
       if (onSwipeStart) {
@@ -157,25 +213,23 @@ export function SwipeCardStack({
         direction * OFFSCREEN_DISTANCE,
         { duration: FLY_OFF_DURATION },
         (finished) => {
+          overlayEnabled.value = 0;
           if (finished) {
-            overlayEnabled.value = 0;
             runOnJS(completeFlyOff)(decision);
+            return;
           }
+
+          isAnimating.value = false;
+          runOnJS(snapBack)();
         },
       );
     },
-    [completeFlyOff, isAnimating, onSwipeStart, overlayEnabled, translateX],
+    [completeFlyOff, isAnimating, onSwipeStart, overlayEnabled, snapBack, translateX],
   );
 
   useImperativeHandle(swipeRef, () => ({
     swipe: flyOff,
   }));
-
-  const snapBack = useCallback(() => {
-    overlayEnabled.value = withTiming(0, { duration: 120 });
-    translateX.value = withSpring(0, { damping: 22, stiffness: 240 });
-    translateY.value = withSpring(0, { damping: 22, stiffness: 240 });
-  }, [overlayEnabled, translateX, translateY]);
 
   const finalizeGesture = useCallback(
     (offsetX: number) => {
@@ -196,12 +250,14 @@ export function SwipeCardStack({
 
   const panGesture = Gesture.Pan()
     .enabled(isInteractive)
+    .activeOffsetX([-10, 10])
     .onBegin(() => {
       if (isAnimating.value) {
         return;
       }
 
       overlayEnabled.value = 1;
+      runOnJS(requestVideoPlayback)();
     })
     .onUpdate((event) => {
       if (isAnimating.value) {
@@ -220,6 +276,7 @@ export function SwipeCardStack({
     });
 
   const frontCardStyle = useAnimatedStyle(() => {
+    const distance = Math.abs(translateX.value);
     const rotate = interpolate(
       translateX.value,
       [-SCREEN_WIDTH, 0, SCREEN_WIDTH],
@@ -228,7 +285,7 @@ export function SwipeCardStack({
     );
 
     return {
-      opacity: 1,
+      opacity: isAnimating.value && distance > HIDE_CARD_DISTANCE ? 0 : 1,
       transform: [
         { translateX: translateX.value },
         { translateY: translateY.value },
@@ -266,25 +323,39 @@ export function SwipeCardStack({
         }
 
         const isFront = slotIndex === frontIndex;
+        const isVideoActive =
+          isFront &&
+          item.mediaType === 'video' &&
+          item.id === currentItem.id &&
+          !isFlyingOff;
 
         return (
           <GestureDetector gesture={isFront ? panGesture : disabledGesture} key={slotIndex}>
             <Animated.View
               pointerEvents={isFront ? 'auto' : 'none'}
               style={[
-                styles.card,
-                isFront ? styles.frontCard : styles.backCard,
+                styles.cardShell,
+                isFront ? styles.frontShell : styles.backShell,
                 isFront ? frontCardStyle : backCardStyle,
               ]}
             >
-              <PhotoCard item={item} />
-              {isFront ? (
-                <DecisionOverlay
-                  key={item.id}
-                  overlayEnabled={overlayEnabled}
-                  translateX={translateX}
+              <View style={styles.cardClip}>
+                <PhotoCard
+                  activeItemId={currentItem.id}
+                  isFront={isFront}
+                  isPlaybackActive={isVideoActive}
+                  isVideoMuted={isVideoMuted}
+                  item={item}
+                  onToggleVideoMute={isFront ? toggleVideoMute : undefined}
+                  playRequestId={playRequestId}
                 />
-              ) : null}
+                {isFront ? (
+                  <DecisionOverlay
+                    overlayEnabled={overlayEnabled}
+                    translateX={translateX}
+                  />
+                ) : null}
+              </View>
             </Animated.View>
           </GestureDetector>
         );
@@ -294,13 +365,17 @@ export function SwipeCardStack({
 }
 
 const styles = StyleSheet.create({
-  backCard: {
+  backShell: {
+    bottom: 0,
+    left: 0,
     position: 'absolute',
+    right: 0,
+    top: 0,
     zIndex: 0,
   },
-  card: {
+  cardClip: {
     borderRadius: theme.radius.lg,
-    height: '100%',
+    flex: 1,
     overflow: 'hidden',
     shadowColor: '#111827',
     shadowOffset: { width: 0, height: 10 },
@@ -308,7 +383,10 @@ const styles = StyleSheet.create({
     shadowRadius: 24,
     width: '100%',
   },
-  frontCard: {
+  cardShell: {
+    flex: 1,
+  },
+  frontShell: {
     zIndex: 1,
   },
   stack: {

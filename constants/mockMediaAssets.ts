@@ -1,4 +1,5 @@
 import type { MediaAsset } from '@/types/media';
+import { DEMO_VIDEO_URI } from '@/constants/demoVideo';
 
 export type MockSwipeItem = MediaAsset & {
   fileSizeBytes: number;
@@ -55,15 +56,15 @@ export const mockSwipeItems: MockSwipeItem[] = [
   },
   {
     id: 'mock-5',
-    uri: 'https://picsum.photos/seed/swipeclean5/900/1200',
+    uri: DEMO_VIDEO_URI,
     filename: 'VID_20250722.mp4',
     mediaType: 'video',
-    width: 900,
-    height: 1200,
+    width: 1280,
+    height: 720,
     creationTime: Date.now() - 1000 * 60 * 60 * 24 * 21,
     modificationTime: Date.now() - 1000 * 60 * 60 * 24 * 21,
-    duration: 12,
-    fileSizeBytes: 48 * 1024 ** 2,
+    duration: 5,
+    fileSizeBytes: 2.8 * 1024 ** 2,
   },
   {
     id: 'mock-6',
