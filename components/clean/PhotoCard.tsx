@@ -1,4 +1,5 @@
 import { Image } from 'expo-image';
+import { memo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { theme } from '@/constants/theme';
@@ -8,14 +9,18 @@ interface PhotoCardProps {
   item: SwipeItem;
 }
 
-export function PhotoCard({ item }: PhotoCardProps) {
+export const PhotoCard = memo(function PhotoCard({ item }: PhotoCardProps) {
   return (
     <View style={styles.container}>
       <Image
+        cachePolicy="memory-disk"
         contentFit="cover"
+        placeholder={theme.colors.border}
+        placeholderContentFit="cover"
+        priority="high"
         source={{ uri: item.uri }}
         style={styles.image}
-        transition={200}
+        transition={0}
       />
       {item.mediaType === 'video' ? (
         <View style={styles.videoBadge}>
@@ -24,12 +29,11 @@ export function PhotoCard({ item }: PhotoCardProps) {
       ) : null}
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   container: {
     backgroundColor: theme.colors.border,
-    borderRadius: theme.radius.lg,
     flex: 1,
     overflow: 'hidden',
   },
