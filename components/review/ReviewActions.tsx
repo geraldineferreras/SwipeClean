@@ -1,44 +1,51 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { PrimaryButton } from '@/components/ui/PrimaryButton';
 import { theme } from '@/constants/theme';
+import { formatCount } from '@/utils/formatBytes';
 
 interface ReviewActionsProps {
   onDeleteSelected: () => void;
-  onKeepEverything: () => void;
   isDeleting?: boolean;
   deleteDisabled?: boolean;
+  selectedCount: number;
 }
 
 export function ReviewActions({
   onDeleteSelected,
-  onKeepEverything,
   isDeleting = false,
   deleteDisabled = false,
+  selectedCount,
 }: ReviewActionsProps) {
+  const itemLabel = selectedCount === 1 ? 'Item' : 'Items';
+
   return (
     <View style={styles.container}>
-      <PrimaryButton
-        disabled={isDeleting || deleteDisabled}
-        label={isDeleting ? 'Deleting…' : 'Delete selected'}
-        onPress={onDeleteSelected}
-        style={styles.deleteButton}
-      />
       <Pressable
-        disabled={isDeleting}
-        onPress={onKeepEverything}
+        disabled={isDeleting || deleteDisabled}
+        onPress={onDeleteSelected}
         style={({ pressed }) => [
-          styles.keepButton,
-          pressed && !isDeleting && styles.pressed,
-          isDeleting && styles.disabledButton,
+          styles.deleteButton,
+          (isDeleting || deleteDisabled) && styles.disabled,
+          pressed && !isDeleting && !deleteDisabled && styles.pressed,
         ]}
       >
         {isDeleting ? (
-          <ActivityIndicator color={theme.colors.textSecondary} />
+          <ActivityIndicator color="#FFFFFF" />
         ) : (
-          <Text style={styles.keepLabel}>Keep everything</Text>
+          <>
+            <Ionicons color="#FFFFFF" name="trash-outline" size={18} />
+            <Text style={styles.deleteLabel}>
+              Remove {formatCount(selectedCount)} {itemLabel}
+            </Text>
+          </>
         )}
       </Pressable>
+
+      <View style={styles.footerNote}>
+        <Ionicons color={theme.colors.textMuted} name="shield-checkmark-outline" size={16} />
+        <Text style={styles.footerText}>Items will be moved to Trash</Text>
+      </View>
     </View>
   );
 }
@@ -49,26 +56,36 @@ const styles = StyleSheet.create({
     paddingTop: theme.spacing.sm,
   },
   deleteButton: {
-    backgroundColor: theme.colors.delete,
-  },
-  disabledButton: {
-    opacity: 0.5,
-  },
-  keepButton: {
     alignItems: 'center',
-    borderColor: theme.colors.border,
-    borderRadius: theme.radius.lg,
-    borderWidth: 1,
+    backgroundColor: theme.colors.delete,
+    borderRadius: theme.radius.pill,
+    flexDirection: 'row',
+    gap: theme.spacing.sm,
     justifyContent: 'center',
-    minHeight: 52,
+    minHeight: 56,
     paddingHorizontal: theme.spacing.lg,
   },
-  keepLabel: {
-    color: theme.colors.textPrimary,
+  deleteLabel: {
+    color: '#FFFFFF',
     fontSize: theme.typography.body,
+    fontWeight: '700',
+  },
+  disabled: {
+    opacity: 0.5,
+  },
+  footerNote: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: theme.spacing.xs,
+    justifyContent: 'center',
+    paddingVertical: theme.spacing.xs,
+  },
+  footerText: {
+    color: theme.colors.textMuted,
+    fontSize: theme.typography.caption,
     fontWeight: '600',
   },
   pressed: {
-    opacity: 0.85,
+    opacity: 0.9,
   },
 });

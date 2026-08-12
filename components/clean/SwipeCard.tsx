@@ -22,6 +22,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { DecisionOverlay } from '@/components/clean/DecisionOverlay';
+import { CardMetadataOverlay } from '@/components/clean/CardMetadataOverlay';
 import { PhotoCard } from '@/components/clean/PhotoCard';
 import { theme } from '@/constants/theme';
 import type { SwipeItem } from '@/types/media';
@@ -41,6 +42,7 @@ interface SwipeCardStackProps {
   currentItem: SwipeItem;
   nextItem: SwipeItem | null;
   onDecision: (decision: 'keep' | 'delete') => void;
+  onDetailsPress?: (item: SwipeItem) => void;
   onSwipeStart?: (decision: 'keep' | 'delete') => void;
   swipeRef: RefObject<SwipeCardRef | null>;
   isInteractive?: boolean;
@@ -52,6 +54,7 @@ export function SwipeCardStack({
   currentItem,
   nextItem,
   onDecision,
+  onDetailsPress,
   onSwipeStart,
   swipeRef,
   isInteractive = true,
@@ -353,6 +356,14 @@ export function SwipeCardStack({
                   <DecisionOverlay
                     overlayEnabled={overlayEnabled}
                     translateX={translateX}
+                  />
+                ) : null}
+                {isFront && item.id === currentItem.id ? (
+                  <CardMetadataOverlay
+                    item={item}
+                    onDetailsPress={
+                      onDetailsPress ? () => onDetailsPress(item) : undefined
+                    }
                   />
                 ) : null}
               </View>

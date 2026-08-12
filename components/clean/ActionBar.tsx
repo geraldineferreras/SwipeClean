@@ -1,3 +1,4 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { theme } from '@/constants/theme';
@@ -10,6 +11,44 @@ interface ActionBarProps {
   disabled?: boolean;
 }
 
+function ActionButton({
+  backgroundColor,
+  borderColor,
+  disabled,
+  icon,
+  iconColor,
+  label,
+  onPress,
+}: {
+  backgroundColor: string;
+  borderColor?: string;
+  disabled?: boolean;
+  icon: keyof typeof Ionicons.glyphMap;
+  iconColor: string;
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <View style={styles.actionItem}>
+      <Pressable
+        accessibilityRole="button"
+        disabled={disabled}
+        onPress={onPress}
+        style={({ pressed }) => [
+          styles.circleButton,
+          { backgroundColor, borderColor: borderColor ?? 'transparent' },
+          borderColor ? styles.circleBorder : null,
+          disabled && styles.disabled,
+          pressed && !disabled && styles.pressed,
+        ]}
+      >
+        <Ionicons color={iconColor} name={icon} size={24} />
+      </Pressable>
+      <Text style={[styles.actionLabel, disabled && styles.labelDisabled]}>{label}</Text>
+    </View>
+  );
+}
+
 export function ActionBar({
   onDelete,
   onKeep,
@@ -19,106 +58,71 @@ export function ActionBar({
 }: ActionBarProps) {
   return (
     <View style={styles.container}>
-      <Pressable
-        accessibilityRole="button"
+      <ActionButton
+        backgroundColor={theme.colors.delete}
         disabled={disabled}
+        icon="trash-outline"
+        iconColor="#FFFFFF"
+        label="Remove"
         onPress={onDelete}
-        style={({ pressed }) => [
-          styles.actionButton,
-          styles.deleteButton,
-          disabled && styles.disabled,
-          pressed && !disabled && styles.pressed,
-        ]}
-      >
-        <Text style={[styles.actionLabel, styles.deleteLabel]}>Delete</Text>
-      </Pressable>
+      />
 
-      <Pressable
-        accessibilityRole="button"
+      <ActionButton
+        backgroundColor={theme.colors.surface}
+        borderColor={theme.colors.border}
         disabled={!canUndo || disabled}
+        icon="arrow-undo-outline"
+        iconColor={theme.colors.textPrimary}
+        label="Undo"
         onPress={onUndo}
-        style={({ pressed }) => [
-          styles.undoButton,
-          (!canUndo || disabled) && styles.disabled,
-          pressed && canUndo && !disabled && styles.pressed,
-        ]}
-      >
-        <Text
-          style={[
-            styles.undoLabel,
-            (!canUndo || disabled) && styles.undoLabelDisabled,
-          ]}
-        >
-          Undo
-        </Text>
-      </Pressable>
+      />
 
-      <Pressable
-        accessibilityRole="button"
+      <ActionButton
+        backgroundColor={theme.colors.keep}
         disabled={disabled}
+        icon="checkmark"
+        iconColor="#FFFFFF"
+        label="Keep"
         onPress={onKeep}
-        style={({ pressed }) => [
-          styles.actionButton,
-          styles.keepButton,
-          disabled && styles.disabled,
-          pressed && !disabled && styles.pressed,
-        ]}
-      >
-        <Text style={[styles.actionLabel, styles.keepLabel]}>Keep</Text>
-      </Pressable>
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  actionButton: {
+  actionItem: {
     alignItems: 'center',
-    borderRadius: theme.radius.md,
     flex: 1,
-    justifyContent: 'center',
-    minHeight: 52,
-    paddingHorizontal: theme.spacing.md,
-  },
-  actionLabel: {
-    fontSize: theme.typography.body,
-    fontWeight: '600',
-  },
-  container: {
-    alignItems: 'center',
-    flexDirection: 'row',
     gap: theme.spacing.sm,
   },
-  deleteButton: {
-    backgroundColor: theme.colors.deleteSoft,
+  actionLabel: {
+    color: theme.colors.textSecondary,
+    fontSize: theme.typography.caption,
+    fontWeight: '600',
   },
-  deleteLabel: {
-    color: theme.colors.delete,
+  circleBorder: {
+    borderWidth: 1,
+  },
+  circleButton: {
+    alignItems: 'center',
+    borderRadius: 999,
+    height: 64,
+    justifyContent: 'center',
+    width: 64,
+  },
+  container: {
+    alignItems: 'flex-start',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: theme.spacing.md,
   },
   disabled: {
     opacity: 0.45,
   },
-  keepButton: {
-    backgroundColor: theme.colors.keepSoft,
-  },
-  keepLabel: {
-    color: theme.colors.keep,
+  labelDisabled: {
+    color: theme.colors.textMuted,
   },
   pressed: {
-    opacity: 0.85,
-  },
-  undoButton: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 52,
-    minWidth: 72,
-    paddingHorizontal: theme.spacing.sm,
-  },
-  undoLabel: {
-    color: theme.colors.textPrimary,
-    fontSize: theme.typography.body,
-    fontWeight: '600',
-  },
-  undoLabelDisabled: {
-    color: theme.colors.textMuted,
+    opacity: 0.88,
   },
 });

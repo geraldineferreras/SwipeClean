@@ -1,14 +1,14 @@
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Linking, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ActionBar } from '@/components/clean/ActionBar';
+import { CleanScreenHeader } from '@/components/clean/CleanScreenHeader';
 import { MediaAccessGate } from '@/components/clean/MediaAccessGate';
-import { MediaMetadata } from '@/components/clean/MediaMetadata';
 import { ProgressIndicator } from '@/components/clean/ProgressIndicator';
+import { SimilarPhotosChip } from '@/components/clean/SimilarPhotosChip';
 import { SwipeCardStack, type SwipeCardRef } from '@/components/clean/SwipeCard';
-import { CLEANING_BATCH_SIZE } from '@/utils/mediaHelpers';
 import { HOME_ROUTE } from '@/constants/routes';
 import { theme } from '@/constants/theme';
 import { useCleanupSessionContext } from '@/contexts/CleanupSessionContext';
@@ -21,6 +21,9 @@ import {
   getQuickCleanCategoryLabel,
   isQuickCleanCategory,
 } from '@/utils/quickCleanFilters';
+import { getSimilarPhotoCount } from '@/utils/similarPhotos';
+import { formatBytes } from '@/utils/formatBytes';
+import { formatMediaDate } from '@/utils/formatDate';
 
 export default function CleanScreen() {
   const swipeRef = useRef<SwipeCardRef>(null);
@@ -214,6 +217,34 @@ export default function CleanScreen() {
     finishSession();
   }, [finishSession, isAnimating, isComplete]);
 
+  const cleaningTitle = useMemo(() => {
+    if (activeAlbumTitle) {
+      return activeAlbumTitle;
+    }
+
+    if (activeCategory) {
+      return getQuickCleanCategoryLabel(activeCategory);
+    }
+
+    return 'Cleaning All Photos';
+  }, [activeAlbumTitle, activeCategory]);
+
+  const similarPhotoCount = useMemo(
+    () => (currentItem ? getSimilarPhotoCount(currentItem) : 0),
+    [currentItem],
+  );
+
+  const handleDetailsPress = useCallback((item: SwipeItem) => {
+    Alert.alert(
+      item.filename,
+      `${formatBytes(item.fileSizeBytes)} · ${formatMediaDate(item.creationTime)}\n${item.width} x ${item.height}`,
+    );
+  }, []);
+
+  const handleSimilarPress = useCallback(() => {
+    Alert.alert('Similar photos', 'Reviewing similar photos will be available in a future update.');
+  }, []);
+
   const handleRetryLoad = useCallback(async () => {
     if (activeAlbumId) {
       const assets = await loadAlbumAssets(activeAlbumId);
@@ -393,25 +424,14 @@ export default function CleanScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <View style={styles.header}>
-          <Pressable onPress={() => router.back()} style={styles.headerBack}>
-            <Text style={styles.headerBackText}>Back</Text>
-          </Pressable>
-          <View style={styles.headerProgress}>
-            <ProgressIndicator current={progressCurrent} total={progressTotal} />
-          </View>
-          <Pressable
-            disabled={isAnimating}
-            onPress={handleDone}
-            style={({ pressed }) => [
-              styles.headerDone,
-              pressed && !isAnimating ? styles.headerDonePressed : null,
-              isAnimating ? styles.headerDoneDisabled : null,
-            ]}
-          >
-            <Text style={styles.headerDoneText}>Done</Text>
-          </Pressable>
-        </View>
+        <CleanScreenHeader
+          doneDisabled={isAnimating}
+          onBack={() => router.back()}
+          onDone={handleDone}
+          title={cleaningTitle}
+        />
+
+        <ProgressIndicator current={progressCurrent} total={progressTotal} />
 
         {access === 'limited' ? (
           <Pressable
@@ -424,30 +444,8 @@ export default function CleanScreen() {
           </Pressable>
         ) : null}
 
-        {activeAlbumTitle ? (
-          <Text style={styles.categoryHint}>
-            Cleaning album · {activeAlbumTitle}
-          </Text>
-        ) : activeCategory ? (
-          <Text style={styles.categoryHint}>
-            Cleaning {getQuickCleanCategoryLabel(activeCategory).toLowerCase()}
-          </Text>
-        ) : null}
-
         {isDemoMode ? (
           <Text style={styles.batchHint}>Demo mode — sample photos only</Text>
-        ) : null}
-
-        {!isDemoMode && !activeAlbumId && progressTotal >= CLEANING_BATCH_SIZE ? (
-          <Text style={styles.batchHint}>
-            Showing your {CLEANING_BATCH_SIZE} most recent items
-          </Text>
-        ) : null}
-
-        {!isDemoMode && activeAlbumId && progressTotal >= CLEANING_BATCH_SIZE ? (
-          <Text style={styles.batchHint}>
-            Showing the first {CLEANING_BATCH_SIZE} items in this album
-          </Text>
         ) : null}
 
         <View style={styles.cardArea}>
@@ -456,12 +454,13 @@ export default function CleanScreen() {
             isInteractive={!isAnimating}
             nextItem={nextItem}
             onDecision={handleDecision}
+            onDetailsPress={handleDetailsPress}
             onSwipeStart={(decision) => void playDecisionSound(decision)}
             swipeRef={swipeRef}
           />
         </View>
 
-        <MediaMetadata item={currentItem} />
+        <SimilarPhotosChip count={similarPhotoCount} onPress={handleSimilarPress} />
 
         <ActionBar
           canUndo={canUndo}
@@ -491,15 +490,9 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.caption,
     textAlign: 'center',
   },
-  categoryHint: {
-    color: theme.colors.accent,
-    fontSize: theme.typography.caption,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
   cardArea: {
     flex: 1,
-    marginVertical: theme.spacing.md,
+    marginTop: theme.spacing.sm,
     minHeight: 360,
   },
   container: {
@@ -508,39 +501,6 @@ const styles = StyleSheet.create({
     paddingBottom: theme.spacing.lg,
     paddingHorizontal: theme.spacing.lg,
     paddingTop: theme.spacing.sm,
-  },
-  header: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: theme.spacing.sm,
-  },
-  headerBack: {
-    minWidth: 56,
-    paddingVertical: theme.spacing.xs,
-  },
-  headerBackText: {
-    color: theme.colors.accent,
-    fontSize: theme.typography.body,
-    fontWeight: '600',
-  },
-  headerDone: {
-    alignItems: 'flex-end',
-    minWidth: 56,
-    paddingVertical: theme.spacing.xs,
-  },
-  headerDoneDisabled: {
-    opacity: 0.4,
-  },
-  headerDonePressed: {
-    opacity: 0.7,
-  },
-  headerDoneText: {
-    color: theme.colors.accent,
-    fontSize: theme.typography.body,
-    fontWeight: '600',
-  },
-  headerProgress: {
-    flex: 1,
   },
   limitedBanner: {
     backgroundColor: theme.colors.accentSoft,

@@ -14,7 +14,7 @@ export function ProgressIndicator({ current, total }: ProgressIndicatorProps) {
   return (
     <View style={styles.container}>
       <Text style={styles.label}>
-        {formatCount(current)} / {formatCount(total)}
+        {formatCount(current)} of {formatCount(total)}
       </Text>
       <View style={styles.track}>
         <View style={[styles.fill, { width: `${Math.min(progress * 100, 100)}%` }]} />
@@ -36,13 +36,12 @@ const styles = StyleSheet.create({
     color: theme.colors.textSecondary,
     fontSize: theme.typography.caption,
     fontWeight: '600',
-    letterSpacing: 0.5,
     textAlign: 'center',
   },
   track: {
     backgroundColor: theme.colors.border,
     borderRadius: theme.radius.pill,
-    height: 4,
+    height: 5,
     overflow: 'hidden',
   },
 });
