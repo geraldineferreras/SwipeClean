@@ -2,6 +2,7 @@ import { Image } from 'expo-image';
 import { Modal, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { resolveMediaThumbnailUri } from '@/constants/demoVideo';
 import { theme } from '@/constants/theme';
 import type { CleanupSessionItem } from '@/types/cleanup';
 
@@ -34,7 +35,7 @@ export function ReviewPreviewOverlay({ item, visible, onClose }: ReviewPreviewOv
               <View style={[styles.previewFrame, { height: previewHeight, width: previewWidth }]}>
                 <Image
                   contentFit="contain"
-                  source={{ uri: item.uri }}
+                  source={{ uri: resolveMediaThumbnailUri(item.uri) }}
                   style={styles.media}
                   transition={150}
                 />

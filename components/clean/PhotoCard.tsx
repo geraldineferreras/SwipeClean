@@ -3,7 +3,7 @@ import { memo } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { SwipeVideoPlayer } from '@/components/clean/SwipeVideoPlayer';
-import { isDemoVideoUri } from '@/constants/demoVideo';
+import { resolveMediaThumbnailUri } from '@/constants/demoVideo';
 import { theme } from '@/constants/theme';
 import type { SwipeItem } from '@/types/media';
 import { formatDuration } from '@/utils/formatDuration';
@@ -54,7 +54,7 @@ export const PhotoCard = memo(function PhotoCard({
         placeholderContentFit="cover"
         priority="high"
         recyclingKey={item.id}
-        source={{ uri: isDemoVideoUri(item.uri) ? 'https://picsum.photos/seed/swipeclean5/900/1200' : item.uri }}
+        source={{ uri: resolveMediaThumbnailUri(item.uri) }}
         style={styles.image}
         transition={0}
       />

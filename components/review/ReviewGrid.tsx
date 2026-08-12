@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { ReviewPreviewOverlay } from '@/components/review/ReviewPreviewOverlay';
+import { resolveMediaThumbnailUri } from '@/constants/demoVideo';
 import { theme } from '@/constants/theme';
 import type { CleanupSessionItem } from '@/types/cleanup';
 
@@ -45,7 +46,7 @@ export function ReviewGrid({ items, selectedIds, onToggleItem }: ReviewGridProps
             >
               <Image
                 contentFit="cover"
-                source={{ uri: item.uri }}
+                source={{ uri: resolveMediaThumbnailUri(item.uri) }}
                 style={[styles.thumbnail, !isSelected && styles.thumbnailDimmed]}
               />
               <View

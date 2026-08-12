@@ -14,6 +14,7 @@ import {
   runMediaLibraryCall,
 } from '@/utils/mediaLibraryAvailability';
 
+import { resolveMediaThumbnailUri } from '@/constants/demoVideo';
 import { mockLibrarySummary } from '@/constants/mockLibraryStats';
 import { mockAlbumAssetIds, mockAlbums } from '@/constants/mockAlbums';
 import { mockSwipeItems } from '@/constants/mockMediaAssets';
@@ -37,7 +38,9 @@ export function getDemoAlbums(): MediaAlbum[] {
 
     return {
       ...album,
-      coverUri: coverAsset?.uri ?? null,
+      coverUri: coverAsset?.uri
+        ? resolveMediaThumbnailUri(coverAsset.uri)
+        : null,
     };
   });
 }

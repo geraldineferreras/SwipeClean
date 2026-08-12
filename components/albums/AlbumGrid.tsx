@@ -1,6 +1,7 @@
 import { Image } from 'expo-image';
 import { FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { resolveMediaThumbnailUri } from '@/constants/demoVideo';
 import { theme } from '@/constants/theme';
 import type { QuickCleanAlbum } from '@/types/cleanup';
 import { formatCount } from '@/utils/formatBytes';
@@ -29,7 +30,7 @@ export function AlbumGrid({ albums, onAlbumPress }: AlbumGridProps) {
             {item.coverUri ? (
               <Image
                 contentFit="cover"
-                source={{ uri: item.coverUri }}
+                source={{ uri: resolveMediaThumbnailUri(item.coverUri) }}
                 style={styles.cover}
                 transition={150}
               />
