@@ -7,7 +7,7 @@ export const TABLET_BREAKPOINT = 600;
 export const LARGE_TABLET_BREAKPOINT = 900;
 export const MAX_CONTENT_WIDTH = 840;
 
-export const TAB_BAR_HEIGHT = Platform.OS === 'ios' ? 84 : 68;
+export const TAB_BAR_HEIGHT = Platform.OS === 'ios' ? 76 : 64;
 
 export function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);

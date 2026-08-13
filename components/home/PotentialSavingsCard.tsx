@@ -1,7 +1,7 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { theme } from '@/constants/theme';
+import { SavingsSparkline } from '@/components/home/SavingsSparkline';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { formatBytes } from '@/utils/formatBytes';
 
@@ -9,51 +9,59 @@ interface PotentialSavingsCardProps {
   potentialSavingsBytes: number;
 }
 
-const SPARKLINE_HEIGHTS = [10, 16, 12, 22, 18, 28, 24, 32];
+const CARD_COLORS = {
+  background: '#F0F9F4',
+  border: '#D5F2E3',
+  value: '#065F46',
+  subtitle: '#64748B',
+  hint: '#94A3B8',
+  icon: '#34A853',
+  pillBackground: '#FFEDD5',
+  pillText: '#9A3412',
+} as const;
 
 export function PotentialSavingsCard({
   potentialSavingsBytes,
 }: PotentialSavingsCardProps) {
-  const { heroValueSize, isCompact } = useResponsiveLayout();
+  const { font, scale, isCompact } = useResponsiveLayout();
+  const sparklineWidth = scale(isCompact ? 58 : 64, 0.1);
+  const sparklineHeight = scale(isCompact ? 38 : 44, 0.1);
 
   return (
-    <View style={[styles.card, isCompact && styles.cardCompact]}>
-      <View style={styles.leftColumn}>
-        <View style={styles.iconBadge}>
-          <Ionicons color={theme.colors.savings} name="sparkles" size={20} />
+    <View style={styles.card}>
+      <View style={styles.iconColumn}>
+        <View style={[styles.iconBadge, { height: scale(38), width: scale(38) }]}>
+          <Ionicons color={CARD_COLORS.icon} name="sparkles" size={scale(18, 0.1)} />
         </View>
-
-        <View style={styles.textGroup}>
-          <View style={styles.pill}>
-            <Text style={styles.pillText}>Potential</Text>
-          </View>
-          <Text style={[styles.value, { fontSize: heroValueSize }]}>
-            {formatBytes(potentialSavingsBytes)}
+        <View style={styles.pill}>
+          <Text numberOfLines={1} style={[styles.pillText, { fontSize: font(10) }]}>
+            Potential
           </Text>
-          <Text style={styles.subtitle}>can be recovered</Text>
-          <Text style={styles.hint}>Clean up and free valuable space</Text>
         </View>
       </View>
 
-      {!isCompact ? (
-        <View style={styles.sparkline}>
-          {SPARKLINE_HEIGHTS.map((height, index) => (
-            <View
-              key={index}
-              style={[
-                styles.sparkBar,
-                {
-                  backgroundColor:
-                    index >= SPARKLINE_HEIGHTS.length - 2
-                      ? theme.colors.savings
-                      : '#86EFAC',
-                  height,
-                },
-              ]}
-            />
-          ))}
+      <View style={styles.textGroup}>
+        <Text style={[styles.value, { fontSize: font(24), lineHeight: font(28) }]}>
+          {formatBytes(potentialSavingsBytes)}
+        </Text>
+        <Text style={[styles.subtitle, { fontSize: font(12), lineHeight: font(16) }]}>
+          can be recovered
+        </Text>
+        <View style={styles.hintWrap}>
+          <Text
+            adjustsFontSizeToFit
+            minimumFontScale={0.9}
+            numberOfLines={1}
+            style={[styles.hint, { fontSize: font(13), lineHeight: font(17) }]}
+          >
+            Clean up and free space
+          </Text>
         </View>
-      ) : null}
+      </View>
+
+      <View style={styles.sparklineWrap}>
+        <SavingsSparkline height={sparklineHeight} width={sparklineWidth} />
+      </View>
     </View>
   );
 }
@@ -61,76 +69,67 @@ export function PotentialSavingsCard({
 const styles = StyleSheet.create({
   card: {
     alignItems: 'center',
-    backgroundColor: theme.colors.savingsSoft,
-    borderColor: theme.colors.savingsBorder,
-    borderRadius: theme.radius.lg,
+    backgroundColor: CARD_COLORS.background,
+    borderColor: CARD_COLORS.border,
+    borderRadius: 24,
     borderWidth: 1,
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    padding: theme.spacing.lg,
-  },
-  cardCompact: {
-    alignItems: 'flex-start',
+    gap: 8,
+    minHeight: 112,
+    paddingHorizontal: 14,
+    paddingVertical: 15,
   },
   hint: {
-    color: theme.colors.textMuted,
-    fontSize: theme.typography.caption,
-    marginTop: 2,
+    color: CARD_COLORS.hint,
+    width: '100%',
+  },
+  hintWrap: {
+    alignSelf: 'stretch',
+    marginTop: 3,
+    width: '100%',
   },
   iconBadge: {
     alignItems: 'center',
-    backgroundColor: theme.colors.surface,
-    borderRadius: theme.radius.pill,
-    flexShrink: 0,
-    height: 40,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 999,
     justifyContent: 'center',
-    width: 40,
   },
-  leftColumn: {
-    flex: 1,
-    flexDirection: 'row',
-    gap: theme.spacing.md,
-    minWidth: 0,
+  iconColumn: {
+    alignItems: 'center',
+    flexShrink: 0,
+    gap: 6,
   },
   pill: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#FEF3C7',
-    borderRadius: theme.radius.pill,
-    marginBottom: theme.spacing.xs,
-    paddingHorizontal: theme.spacing.sm,
+    alignSelf: 'center',
+    backgroundColor: CARD_COLORS.pillBackground,
+    borderRadius: 999,
+    flexShrink: 0,
+    paddingHorizontal: 10,
     paddingVertical: 2,
   },
   pillText: {
-    color: '#92400E',
-    fontSize: 11,
+    color: CARD_COLORS.pillText,
     fontWeight: '700',
-    letterSpacing: 0.3,
+    letterSpacing: 0,
   },
-  sparkBar: {
-    borderRadius: 4,
-    width: 6,
-  },
-  sparkline: {
-    alignItems: 'flex-end',
-    flexDirection: 'row',
+  sparklineWrap: {
+    alignItems: 'center',
     flexShrink: 0,
-    gap: 4,
-    height: 36,
-    marginLeft: theme.spacing.sm,
+    justifyContent: 'center',
   },
   subtitle: {
-    color: theme.colors.textSecondary,
-    fontSize: theme.typography.caption,
+    color: CARD_COLORS.subtitle,
     fontWeight: '500',
+    marginTop: 1,
   },
   textGroup: {
     flex: 1,
-    gap: 2,
+    justifyContent: 'center',
     minWidth: 0,
   },
   value: {
-    color: theme.colors.savings,
+    color: CARD_COLORS.value,
     fontWeight: '800',
-    letterSpacing: -0.5,
+    letterSpacing: -0.4,
   },
 });
