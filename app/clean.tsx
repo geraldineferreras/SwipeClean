@@ -1,4 +1,4 @@
-import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -13,6 +13,8 @@ import { HOME_ROUTE } from '@/constants/routes';
 import { theme } from '@/constants/theme';
 import { useAppModal } from '@/contexts/AppModalContext';
 import { useCleanupSessionContext } from '@/contexts/CleanupSessionContext';
+import { useSettings } from '@/contexts/SettingsContext';
+import { useTrash } from '@/contexts/TrashContext';
 import { useMediaLibrary } from '@/hooks/useMediaLibrary';
 import { useSwipeSounds } from '@/hooks/useSwipeSounds';
 import type { SwipeItem } from '@/types/media';
@@ -21,13 +23,16 @@ import {
   filterAssetsByCategory,
   getQuickCleanCategoryLabel,
   isQuickCleanCategory,
+  isScreenshot,
 } from '@/utils/quickCleanFilters';
+import { sortSwipeItemsByRecency } from '@/utils/mediaHelpers';
 import { getSimilarPhotoCount } from '@/utils/similarPhotos';
 import { formatBytes } from '@/utils/formatBytes';
 import { formatMediaDate } from '@/utils/formatDate';
 
 export default function CleanScreen() {
   const { showAlert } = useAppModal();
+  const { aiSuggestionsEnabled } = useSettings();
   const swipeRef = useRef<SwipeCardRef>(null);
   const [isAnimating, setIsAnimating] = useState(false);
   const lastInitKeyRef = useRef<string | null>(null);
@@ -53,6 +58,7 @@ export default function CleanScreen() {
     access,
     cleaningAssets,
     isLoading,
+    isCleaningAssetsLoading,
     error,
     isSupported,
     isDemoMode,
@@ -75,14 +81,29 @@ export default function CleanScreen() {
     markedForDeletion,
     initializeSession,
     recordDecision,
+    removeCurrentItem,
     finishSession,
     undoLastDecision,
   } = useCleanupSessionContext();
 
-  const isCompleteRef = useRef(isComplete);
-  isCompleteRef.current = isComplete;
-
   const { playDecisionSound } = useSwipeSounds();
+  const { moveItemsToTrash, trashedAssetIds } = useTrash();
+
+  useEffect(() => {
+    if (activeAlbumId || isDemoMode || isCleaningAssetsLoading) {
+      return;
+    }
+
+    if (cleaningAssets.length === 0) {
+      void loadCleaningBatch();
+    }
+  }, [
+    activeAlbumId,
+    cleaningAssets.length,
+    isCleaningAssetsLoading,
+    isDemoMode,
+    loadCleaningBatch,
+  ]);
 
   useEffect(() => {
     if (!activeAlbumId) {
@@ -108,22 +129,29 @@ export default function CleanScreen() {
     };
   }, [activeAlbumId, loadAlbumAssets]);
 
-  const sessionAssets = useMemo(() => {
+  const sessionSourceAssets = useMemo(() => {
+    let assets: SwipeItem[];
+
     if (activeAlbumId) {
-      return albumAssets;
+      assets = albumAssets;
+    } else if (activeCategory) {
+      assets = filterAssetsByCategory(cleaningAssets, activeCategory);
+    } else {
+      assets = cleaningAssets.filter((asset) => !isScreenshot(asset));
     }
 
-    if (!activeCategory) {
-      return cleaningAssets;
-    }
-
-    return filterAssetsByCategory(cleaningAssets, activeCategory);
+    return sortSwipeItemsByRecency(assets);
   }, [activeAlbumId, activeCategory, albumAssets, cleaningAssets]);
+
+  const sessionAssets = useMemo(
+    () => sessionSourceAssets.filter((asset) => !trashedAssetIds.has(asset.id)),
+    [sessionSourceAssets, trashedAssetIds],
+  );
 
   const sessionInitKey = useMemo(
     () =>
-      `${activeAlbumId ?? activeCategory ?? 'all'}:${sessionAssets.map((item) => item.id).join('|')}`,
-    [activeAlbumId, activeCategory, sessionAssets],
+      `${activeAlbumId ?? activeCategory ?? 'all'}:${sessionSourceAssets.map((item) => item.id).join('|')}`,
+    [activeAlbumId, activeCategory, sessionSourceAssets],
   );
 
   useEffect(() => {
@@ -156,17 +184,6 @@ export default function CleanScreen() {
     }
   }, [isComplete, markedForDeletion.length]);
 
-  // Restart when returning to this screen after a finished session
-  useFocusEffect(
-    useCallback(() => {
-      if (sessionAssets.length > 0 && isCompleteRef.current) {
-        initializeSession(sessionAssets);
-        lastInitKeyRef.current = sessionInitKey;
-        hasNavigatedToReviewRef.current = false;
-      }
-    }, [initializeSession, sessionAssets, sessionInitKey]),
-  );
-
   useEffect(() => {
     if (isComplete) {
       setIsAnimating(false);
@@ -179,10 +196,33 @@ export default function CleanScreen() {
 
   const handleDecision = useCallback(
     (decision: 'keep' | 'delete') => {
-      recordDecision(decision);
+      if (!currentItem) {
+        setIsAnimating(false);
+        return;
+      }
+
+      if (decision === 'delete') {
+        void (async () => {
+          const result = await moveItemsToTrash([currentItem]);
+          if (result.movedCount === 0) {
+            showAlert({
+              title: 'Could not remove item',
+              message: result.errors.join('\n') || 'Try again or check photo permissions.',
+            });
+            setIsAnimating(false);
+            return;
+          }
+
+          removeCurrentItem();
+          setIsAnimating(false);
+        })();
+        return;
+      }
+
+      recordDecision('keep');
       setIsAnimating(false);
     },
-    [recordDecision],
+    [currentItem, moveItemsToTrash, recordDecision, removeCurrentItem, showAlert],
   );
 
   const handleDeletePress = useCallback(() => {
@@ -259,17 +299,20 @@ export default function CleanScreen() {
       setAlbumAssets(assets);
 
       if (assets.length > 0) {
-        initializeSession(assets);
-        lastInitKeyRef.current = `${activeAlbumId}:${assets.map((item) => item.id).join('|')}`;
+        const sortedAssets = sortSwipeItemsByRecency(assets);
+        initializeSession(sortedAssets);
+        lastInitKeyRef.current = `${activeAlbumId}:${sortedAssets.map((item) => item.id).join('|')}`;
       }
 
       return;
     }
 
     const assets = await loadCleaningBatch();
-    const nextAssets = activeCategory
+    let nextAssets = activeCategory
       ? filterAssetsByCategory(assets, activeCategory)
-      : assets;
+      : assets.filter((asset) => !isScreenshot(asset));
+
+    nextAssets = sortSwipeItemsByRecency(nextAssets);
 
     if (nextAssets.length > 0) {
       initializeSession(nextAssets);
@@ -294,7 +337,7 @@ export default function CleanScreen() {
     );
   }
 
-  if (isLoading || (activeAlbumId && isAlbumLoading)) {
+  if (isLoading || isCleaningAssetsLoading || (activeAlbumId && isAlbumLoading)) {
     return (
       <SafeAreaView style={styles.safeArea}>
         <MediaAccessGate
@@ -392,7 +435,7 @@ export default function CleanScreen() {
               ? `"${activeAlbumTitle}" has no photos or videos to clean right now.`
               : categoryLabel
                 ? `No ${categoryLabel.toLowerCase()} found in this batch yet.`
-                : 'Nothing to clean in this category.'
+                : 'All photos in this batch are in Trash. Restore them from the Trash tab to clean them again.'
           }
           title={
             activeAlbumTitle
@@ -468,7 +511,9 @@ export default function CleanScreen() {
           />
         </View>
 
-        <SimilarPhotosChip count={similarPhotoCount} onPress={handleSimilarPress} />
+        {aiSuggestionsEnabled ? (
+          <SimilarPhotosChip count={similarPhotoCount} onPress={handleSimilarPress} />
+        ) : null}
 
         <ActionBar
           canUndo={canUndo}

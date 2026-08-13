@@ -1,7 +1,7 @@
 import Constants, { ExecutionEnvironment } from 'expo-constants';
 import { Platform } from 'react-native';
 
-export type MediaAccessBlockReason = 'expo_go_android';
+export type MediaAccessBlockReason = 'expo_go_android' | 'unknown';
 
 export class MediaLibraryAccessError extends Error {
   readonly reason: MediaAccessBlockReason | 'unknown';

@@ -1,5 +1,4 @@
-import { router, useFocusEffect } from 'expo-router';
-import { useCallback } from 'react';
+import { router } from 'expo-router';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -14,13 +13,7 @@ import { theme } from '@/constants/theme';
 import { useMediaLibrary } from '@/hooks/useMediaLibrary';
 
 export default function HomeScreen() {
-  const { summary, isLoading, isSupported, isDemoMode, refresh } = useMediaLibrary();
-
-  useFocusEffect(
-    useCallback(() => {
-      void refresh();
-    }, [refresh]),
-  );
+  const { summary, isLoading, isSupported, isDemoMode } = useMediaLibrary();
 
   const displaySummary = summary ?? mockLibrarySummary;
 
@@ -38,14 +31,17 @@ export default function HomeScreen() {
         {isLoading && isSupported && !isDemoMode ? (
           <View style={styles.loadingRow}>
             <ActivityIndicator color={theme.colors.accent} />
-            <Text style={styles.loadingText}>Reading your library…</Text>
+            <Text style={styles.loadingText}>Loading your library…</Text>
           </View>
         ) : null}
 
         <StorageOverviewCard
+          deviceUsedBytes={displaySummary.deviceUsedBytes}
+          measuredAssetCount={displaySummary.measuredAssetCount}
+          mediaLibraryBytes={displaySummary.storageUsedBytes}
           otherCount={displaySummary.otherCount}
           photoCount={displaySummary.photoCount}
-          storageUsedBytes={displaySummary.storageUsedBytes}
+          scannedAssetCount={displaySummary.scannedAssetCount}
           totalStorageBytes={displaySummary.totalStorageBytes}
           videoCount={displaySummary.videoCount}
         />

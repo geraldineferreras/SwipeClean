@@ -3,6 +3,7 @@ import { DEMO_VIDEO_URI } from '@/constants/demoVideo';
 
 export type MockSwipeItem = MediaAsset & {
   fileSizeBytes: number;
+  isHidden?: boolean;
 };
 
 export const mockSwipeItems: MockSwipeItem[] = [
@@ -89,6 +90,7 @@ export const mockSwipeItems: MockSwipeItem[] = [
     modificationTime: Date.now() - 1000 * 60 * 60 * 24 * 45,
     duration: 0,
     fileSizeBytes: 3.7 * 1024 ** 2,
+    isHidden: true,
   },
   {
     id: 'mock-8',
@@ -101,6 +103,7 @@ export const mockSwipeItems: MockSwipeItem[] = [
     modificationTime: Date.now() - 1000 * 60 * 60 * 24 * 60,
     duration: 0,
     fileSizeBytes: 1.9 * 1024 ** 2,
+    isHidden: true,
   },
   {
     id: 'mock-9',

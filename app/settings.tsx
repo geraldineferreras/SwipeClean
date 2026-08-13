@@ -1,12 +1,14 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
-import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as StoreReview from 'expo-store-review';
 
 import { SettingsLinkRow, SettingsRowCard } from '@/components/settings/SettingsRowCard';
 import { SettingsToggle } from '@/components/settings/SettingsToggle';
 import { ScreenFrame } from '@/components/layout/ScreenFrame';
 import {
+  ABOUT_CONTENT,
   ABOUT_LINKS,
   APP_VERSION,
   RECOVERY_RETENTION_OPTIONS,
@@ -42,29 +44,45 @@ export default function SettingsScreen() {
     });
   };
 
-  const handleAboutPress = (id: string, label: string, url?: string) => {
+  const handleAboutPress = (id: string) => {
     if (id === 'rate') {
-      showAlert({
-        title: 'Rate Us',
-        message: 'App Store rating will be available in a future update.',
-      });
-      return;
-    }
+      void (async () => {
+        if (await StoreReview.isAvailableAsync()) {
+          await StoreReview.requestReview();
+          return;
+        }
 
-    if (url) {
-      void Linking.openURL(url).catch(() => {
-        showAlert({
-          title: label,
-          message: 'This link is not available yet.',
+        const storeUrl = Platform.select({
+          ios: 'https://apps.apple.com/app/swipe-clean',
+          android: 'https://play.google.com/store/apps/details?id=com.swipeclean.app',
+          default: undefined,
         });
-      });
+
+        if (storeUrl) {
+          try {
+            await Linking.openURL(storeUrl);
+            return;
+          } catch {
+            // Fall through to the alert below.
+          }
+        }
+
+        showAlert({
+          title: 'Rate Us',
+          message:
+            'Thanks for using SwipeClean! In-app rating will be available once the app is published to the App Store or Google Play.',
+        });
+      })();
       return;
     }
 
-    showAlert({
-      title: label,
-      message: 'Coming soon.',
-    });
+    const content = ABOUT_CONTENT[id];
+    if (content) {
+      showAlert({
+        title: content.title,
+        message: content.message,
+      });
+    }
   };
 
   return (
@@ -107,7 +125,7 @@ export default function SettingsScreen() {
             />
 
             <SettingsRowCard
-              icon="grid-outline"
+              icon="sparkles-outline"
               subtitle="Show smart suggestions while cleaning"
               title="AI Suggestions"
               trailing={
@@ -119,7 +137,7 @@ export default function SettingsScreen() {
             />
 
             <SettingsRowCard
-              icon="grid-outline"
+              icon="eye-off-outline"
               subtitle="Skip hidden photos and videos"
               title="Hidden Items"
               trailing={
@@ -137,7 +155,7 @@ export default function SettingsScreen() {
                 icon={item.icon}
                 isLast={index === ABOUT_LINKS.length - 1}
                 label={item.label}
-                onPress={() => handleAboutPress(item.id, item.label, item.url)}
+                onPress={() => handleAboutPress(item.id)}
               />
             ))}
           </View>

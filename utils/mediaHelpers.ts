@@ -1,9 +1,97 @@
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
 
 import type { MediaAlbum, MediaType, PhotoAccess, SwipeItem } from '@/types/media';
+import { estimateAssetSizeBytes } from '@/utils/assetSizeEstimation';
+import { isHiddenAlbumTitle } from '@/utils/assetFilters';
 
 const CLEANING_BATCH_SIZE = 100;
+const CLEANING_PAGE_SIZE = 1000;
+const ALBUM_RESOLVE_CONCURRENCY = 6;
+
+async function readUriSizeBytes(uri: string): Promise<number | null> {
+  if (!uri) {
+    return null;
+  }
+
+  try {
+    const fileInfo = await FileSystem.getInfoAsync(uri);
+    if (fileInfo.exists && 'size' in fileInfo && typeof fileInfo.size === 'number' && fileInfo.size > 0) {
+      return fileInfo.size;
+    }
+  } catch {
+    // Fall through.
+  }
+
+  return null;
+}
+
+function parseExifFileSize(exif: Record<string, unknown> | undefined): number | null {
+  if (!exif) {
+    return null;
+  }
+
+  const candidates = [exif.FileSize, exif.fileSize, exif.ImageLength];
+  for (const candidate of candidates) {
+    if (typeof candidate === 'number' && candidate > 0) {
+      return candidate;
+    }
+
+    if (typeof candidate === 'string') {
+      const parsed = Number(candidate);
+      if (parsed > 0) {
+        return parsed;
+      }
+    }
+  }
+
+  return null;
+}
+
+export interface ResolvedFileSize {
+  bytes: number;
+  isMeasured: boolean;
+}
+
+export async function resolveFileSizeBytesWithSource(
+  asset: MediaLibrary.Asset,
+): Promise<ResolvedFileSize> {
+  try {
+    const info = await MediaLibrary.getAssetInfoAsync(asset, {
+      shouldDownloadFromNetwork: false,
+    });
+    const exifSize = parseExifFileSize(info.exif as Record<string, unknown> | undefined);
+
+    if (exifSize) {
+      return { bytes: exifSize, isMeasured: true };
+    }
+
+    const uris = [info.localUri, asset.uri].filter(
+      (uri): uri is string => typeof uri === 'string' && uri.length > 0,
+    );
+
+    for (const uri of uris) {
+      const localSize = await readUriSizeBytes(uri);
+      if (localSize) {
+        return { bytes: localSize, isMeasured: true };
+      }
+    }
+  } catch {
+    // Fall through to estimate.
+  }
+
+  return {
+    bytes: estimateAssetSizeBytes(asset),
+    isMeasured: false,
+  };
+}
+
+export async function resolveFileSizeBytes(
+  asset: MediaLibrary.Asset,
+): Promise<number> {
+  const resolved = await resolveFileSizeBytesWithSource(asset);
+  return resolved.bytes;
+}
 
 export function normalizePhotoAccess(
   response: MediaLibrary.PermissionResponse,
@@ -19,28 +107,8 @@ export function normalizePhotoAccess(
   return 'all';
 }
 
-export async function resolveFileSizeBytes(
-  asset: MediaLibrary.Asset,
-): Promise<number> {
-  try {
-    const info = await MediaLibrary.getAssetInfoAsync(asset);
-    const exifSize = info.exif?.FileSize;
-
-    if (typeof exifSize === 'number' && exifSize > 0) {
-      return exifSize;
-    }
-
-    if (info.localUri) {
-      const fileInfo = await FileSystem.getInfoAsync(info.localUri);
-      if (fileInfo.exists && 'size' in fileInfo && typeof fileInfo.size === 'number') {
-        return fileInfo.size;
-      }
-    }
-  } catch {
-    // Size is optional for display; fall back to zero.
-  }
-
-  return 0;
+export function resolveEstimatedFileSizeBytes(asset: MediaLibrary.Asset): number {
+  return estimateAssetSizeBytes(asset);
 }
 
 function mapMediaType(mediaType: MediaLibrary.MediaTypeValue): MediaType {
@@ -57,6 +125,24 @@ function mapMediaType(mediaType: MediaLibrary.MediaTypeValue): MediaType {
   }
 
   return 'unknown';
+}
+
+export async function resolveAssetDisplayUri(
+  asset: { id: string; uri: string },
+): Promise<string> {
+  try {
+    const info = await MediaLibrary.getAssetInfoAsync(asset, {
+      shouldDownloadFromNetwork: false,
+    });
+
+    if (info.localUri) {
+      return info.localUri;
+    }
+  } catch {
+    // Fall through.
+  }
+
+  return asset.uri;
 }
 
 export function mapAssetToSwipeItem(
@@ -77,6 +163,70 @@ export function mapAssetToSwipeItem(
   };
 }
 
+export function getSwipeItemRecencyTimestamp(item: SwipeItem): number {
+  return Math.max(item.modificationTime ?? 0, item.creationTime ?? 0);
+}
+
+export function sortSwipeItemsByRecency(items: SwipeItem[]): SwipeItem[] {
+  return [...items].sort(
+    (left, right) => getSwipeItemRecencyTimestamp(right) - getSwipeItemRecencyTimestamp(left),
+  );
+}
+
+export function mapAssetsWithEstimatedSizes(
+  assets: MediaLibrary.Asset[],
+): SwipeItem[] {
+  return assets.map((asset) =>
+    mapAssetToSwipeItem(asset, estimateAssetSizeBytes(asset)),
+  );
+}
+
+async function paginateAllAssets(options: {
+  album?: string;
+  mediaType?: MediaLibrary.MediaTypeValue[];
+} = {}): Promise<MediaLibrary.Asset[]> {
+  const allAssets: MediaLibrary.Asset[] = [];
+  let after: string | undefined;
+
+  while (true) {
+    let page: MediaLibrary.PagedInfo<MediaLibrary.Asset>;
+
+    try {
+      page = await MediaLibrary.getAssetsAsync({
+        first: CLEANING_PAGE_SIZE,
+        after,
+        album: options.album,
+        mediaType: options.mediaType ?? [
+          MediaLibrary.MediaType.photo,
+          MediaLibrary.MediaType.video,
+        ],
+        sortBy: [[MediaLibrary.SortBy.modificationTime, false]],
+      });
+    } catch {
+      page = await MediaLibrary.getAssetsAsync({
+        first: CLEANING_PAGE_SIZE,
+        after,
+        album: options.album,
+        mediaType: options.mediaType ?? [
+          MediaLibrary.MediaType.photo,
+          MediaLibrary.MediaType.video,
+        ],
+        sortBy: [[MediaLibrary.SortBy.creationTime, false]],
+      });
+    }
+
+    allAssets.push(...page.assets);
+
+    if (!page.hasNextPage || !page.endCursor || page.assets.length === 0) {
+      break;
+    }
+
+    after = page.endCursor;
+  }
+
+  return allAssets;
+}
+
 export async function mapAssetsWithSizes(
   assets: MediaLibrary.Asset[],
 ): Promise<SwipeItem[]> {
@@ -88,61 +238,102 @@ export async function mapAssetsWithSizes(
   );
 }
 
-export async function fetchCleaningAssets(): Promise<SwipeItem[]> {
-  const page = await MediaLibrary.getAssetsAsync({
-    first: CLEANING_BATCH_SIZE,
-    mediaType: [MediaLibrary.MediaType.photo, MediaLibrary.MediaType.video],
-    sortBy: [[MediaLibrary.SortBy.creationTime, false]],
-  });
+export async function fetchHiddenAssetIds(): Promise<Set<string>> {
+  try {
+    const albums = await MediaLibrary.getAlbumsAsync({
+      includeSmartAlbums: true,
+    });
+    const hiddenAlbum = albums.find((album) => isHiddenAlbumTitle(album.title));
 
-  return mapAssetsWithSizes(page.assets);
+    if (!hiddenAlbum) {
+      return new Set();
+    }
+
+    const page = await MediaLibrary.getAssetsAsync({
+      album: hiddenAlbum.id,
+      first: 5000,
+      mediaType: [MediaLibrary.MediaType.photo, MediaLibrary.MediaType.video],
+    });
+
+    return new Set(page.assets.map((asset) => asset.id));
+  } catch {
+    return new Set();
+  }
+}
+
+export async function fetchCleaningAssets(): Promise<SwipeItem[]> {
+  const assets = await paginateAllAssets();
+  return sortSwipeItemsByRecency(mapAssetsWithEstimatedSizes(assets));
 }
 
 export async function fetchAlbumAssets(albumId: string): Promise<SwipeItem[]> {
-  const page = await MediaLibrary.getAssetsAsync({
-    album: albumId,
-    first: CLEANING_BATCH_SIZE,
-    mediaType: [MediaLibrary.MediaType.photo, MediaLibrary.MediaType.video],
-    sortBy: [[MediaLibrary.SortBy.creationTime, false]],
-  });
-
-  return mapAssetsWithSizes(page.assets);
+  const assets = await paginateAllAssets({ album: albumId });
+  return sortSwipeItemsByRecency(mapAssetsWithEstimatedSizes(assets));
 }
 
-export async function fetchMediaAlbums(): Promise<MediaAlbum[]> {
+async function resolveMediaAlbum(album: MediaLibrary.Album): Promise<MediaAlbum | null> {
+  let assetCount = album.assetCount;
+  let coverUri: string | null = null;
+
+  try {
+    const page = await MediaLibrary.getAssetsAsync({
+      album: album.id,
+      first: 1,
+      mediaType: [MediaLibrary.MediaType.photo, MediaLibrary.MediaType.video],
+      sortBy: [[MediaLibrary.SortBy.creationTime, false]],
+    });
+
+    coverUri = page.assets[0]?.uri ?? null;
+    if (assetCount <= 0) {
+      assetCount = page.totalCount;
+    }
+  } catch {
+    if (assetCount <= 0) {
+      return null;
+    }
+  }
+
+  if (assetCount <= 0) {
+    return null;
+  }
+
+  return {
+    id: album.id,
+    title: album.title,
+    assetCount,
+    type: album.type === 'smartAlbum' ? 'smartAlbum' : 'album',
+    coverUri,
+  };
+}
+
+export async function fetchMediaAlbums(skipHiddenAlbums = false): Promise<MediaAlbum[]> {
   const albums = await MediaLibrary.getAlbumsAsync({
     includeSmartAlbums: true,
   });
 
-  const filtered = albums
-    .filter((album) => album.assetCount > 0)
-    .sort((left, right) => right.assetCount - left.assetCount);
-
-  return Promise.all(
-    filtered.map(async (album) => {
-      let coverUri: string | null = null;
-
-      try {
-        const page = await MediaLibrary.getAssetsAsync({
-          album: album.id,
-          first: 1,
-          mediaType: [MediaLibrary.MediaType.photo, MediaLibrary.MediaType.video],
-          sortBy: [[MediaLibrary.SortBy.creationTime, false]],
-        });
-        coverUri = page.assets[0]?.uri ?? null;
-      } catch {
-        coverUri = null;
-      }
-
-      return {
-        id: album.id,
-        title: album.title,
-        assetCount: album.assetCount,
-        type: album.type === 'smartAlbum' ? 'smartAlbum' : 'album',
-        coverUri,
-      };
-    }),
+  const visibleAlbums = albums.filter(
+    (album) => !skipHiddenAlbums || !isHiddenAlbumTitle(album.title),
   );
+  const resolvedAlbums: MediaAlbum[] = [];
+
+  for (let start = 0; start < visibleAlbums.length; start += ALBUM_RESOLVE_CONCURRENCY) {
+    const batch = visibleAlbums.slice(start, start + ALBUM_RESOLVE_CONCURRENCY);
+    const batchResults = await Promise.all(batch.map((album) => resolveMediaAlbum(album)));
+
+    for (const album of batchResults) {
+      if (album) {
+        resolvedAlbums.push(album);
+      }
+    }
+  }
+
+  return resolvedAlbums.sort((left, right) => {
+    if (right.assetCount !== left.assetCount) {
+      return right.assetCount - left.assetCount;
+    }
+
+    return left.title.localeCompare(right.title);
+  });
 }
 
 export async function fetchLibraryCounts(): Promise<{

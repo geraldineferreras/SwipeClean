@@ -1,17 +1,17 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { StyleSheet, Text, View } from 'react-native';
 
-import { TRASH_RETENTION_DAYS } from '@/constants/mockTrash';
 import { theme } from '@/constants/theme';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { formatBytes, formatCount } from '@/utils/formatBytes';
 
 interface TrashSummaryCardProps {
+  daysLeft: number;
   itemCount: number;
   totalBytes: number;
 }
 
-export function TrashSummaryCard({ itemCount, totalBytes }: TrashSummaryCardProps) {
+export function TrashSummaryCard({ daysLeft, itemCount, totalBytes }: TrashSummaryCardProps) {
   const { font, heroValueSize, isCompact, scale } = useResponsiveLayout();
   const ringSize = scale(isCompact ? 70 : 78);
   const innerSize = scale(isCompact ? 52 : 58);
@@ -58,7 +58,7 @@ export function TrashSummaryCard({ itemCount, totalBytes }: TrashSummaryCardProp
             <View style={styles.daysBadge}>
               <Ionicons color={theme.colors.delete} name="time-outline" size={14} />
               <Text numberOfLines={1} style={styles.daysBadgeText}>
-                {TRASH_RETENTION_DAYS} days left
+                {daysLeft} days left
               </Text>
             </View>
           </View>
@@ -66,7 +66,7 @@ export function TrashSummaryCard({ itemCount, totalBytes }: TrashSummaryCardProp
           <Text style={styles.countLabel}>{formatCount(itemCount)} items</Text>
           <Text style={[styles.expiryText, { fontSize: font(13) }]}>
             Will be permanently deleted in{' '}
-            <Text style={styles.expiryHighlight}>{TRASH_RETENTION_DAYS} days</Text>
+            <Text style={styles.expiryHighlight}>{daysLeft} days</Text>
           </Text>
         </View>
       </View>

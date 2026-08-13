@@ -30,6 +30,7 @@ interface CleanupSessionContextValue {
   lastCleanupResult: CleanupResult | null;
   initializeSession: (items: SwipeItem[]) => void;
   recordDecision: (decision: SessionDecision) => void;
+  removeCurrentItem: () => void;
   finishSession: () => void;
   undoLastDecision: () => void;
   resetSession: () => void;
@@ -43,6 +44,7 @@ const CleanupSessionContext = createContext<CleanupSessionContextValue | null>(
 export function CleanupSessionProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<SwipeItem[]>([]);
   const [index, setIndex] = useState(0);
+  const [initialTotal, setInitialTotal] = useState(0);
   const [decisions, setDecisions] = useState<CleanupSessionItem[]>([]);
   const [undoStack, setUndoStack] = useState<UndoEntry[]>([]);
   const [lastCleanupResult, setLastCleanupResult] = useState<CleanupResult | null>(
@@ -51,6 +53,7 @@ export function CleanupSessionProvider({ children }: { children: ReactNode }) {
 
   const initializeSession = useCallback((nextItems: SwipeItem[]) => {
     setItems(nextItems);
+    setInitialTotal(nextItems.length);
     setIndex(0);
     setDecisions([]);
     setUndoStack([]);
@@ -58,14 +61,26 @@ export function CleanupSessionProvider({ children }: { children: ReactNode }) {
 
   const resetSession = useCallback(() => {
     setItems([]);
+    setInitialTotal(0);
     setIndex(0);
     setDecisions([]);
     setUndoStack([]);
   }, []);
 
+  const removeCurrentItem = useCallback(() => {
+    setItems((previous) => {
+      if (index < 0 || index >= previous.length) {
+        return previous;
+      }
+
+      return previous.filter((_, itemIndex) => itemIndex !== index);
+    });
+  }, [index]);
+
   const currentItem = items[index] ?? null;
   const nextItem = items[index + 1] ?? null;
-  const isComplete = items.length > 0 && index >= items.length;
+  const isComplete =
+    initialTotal > 0 && (items.length === 0 || index >= items.length);
 
   const recordDecision = useCallback(
     (decision: SessionDecision) => {
@@ -126,18 +141,18 @@ export function CleanupSessionProvider({ children }: { children: ReactNode }) {
       currentItem,
       nextItem,
       isComplete,
-      progressCurrent: items.length > 0
-        ? isComplete
-          ? decisions.length
-          : index + 1
-        : 0,
-      progressTotal: items.length,
+      progressCurrent:
+        initialTotal > 0
+          ? Math.min(initialTotal - items.length + index + (isComplete ? 0 : 1), initialTotal)
+          : 0,
+      progressTotal: initialTotal,
       canUndo: undoStack.length > 0,
       markedForDeletion,
       keptCount,
       lastCleanupResult,
       initializeSession,
       recordDecision,
+      removeCurrentItem,
       finishSession,
       undoLastDecision,
       resetSession,
@@ -149,13 +164,15 @@ export function CleanupSessionProvider({ children }: { children: ReactNode }) {
       nextItem,
       isComplete,
       index,
+      initialTotal,
+      items.length,
       undoStack.length,
-      decisions.length,
       markedForDeletion,
       keptCount,
       lastCleanupResult,
       initializeSession,
       recordDecision,
+      removeCurrentItem,
       finishSession,
       undoLastDecision,
       resetSession,

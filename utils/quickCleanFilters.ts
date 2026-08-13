@@ -21,22 +21,40 @@ export function getQuickCleanCategoryLabel(category: QuickCleanCategoryKey): str
       return 'Duplicates';
     case 'largeVideos':
       return 'Large Videos';
+    case 'blurryPhotos':
+      return 'Blurry Photos';
+    case 'favorites':
+      return 'Favorites';
   }
 }
 
 function isScreenshot(item: SwipeItem): boolean {
-  return /screenshot|screen shot|\.png$/i.test(item.filename);
+  return /screenshot|screen shot|screen_shot|\.png$/i.test(item.filename);
 }
 
-function isLargeVideo(item: SwipeItem): boolean {
+export function isLargeVideo(item: SwipeItem): boolean {
   return item.mediaType === 'video' && item.fileSizeBytes >= LARGE_VIDEO_BYTES;
 }
 
-function isDuplicateCandidate(item: SwipeItem): boolean {
+export function isDuplicateCandidate(item: SwipeItem): boolean {
   return (
     /\(1\)|\(2\)|copy|duplicate/i.test(item.filename) || item.id.includes('dup')
   );
 }
+
+export function isBlurryPhotoCandidate(item: SwipeItem): boolean {
+  if (item.mediaType !== 'photo') {
+    return false;
+  }
+
+  if (item.width <= 0 || item.height <= 0) {
+    return false;
+  }
+
+  return item.width * item.height < 400_000;
+}
+
+export { isScreenshot };
 
 export function filterAssetsByCategory(
   items: SwipeItem[],
@@ -49,6 +67,8 @@ export function filterAssetsByCategory(
       return items.filter(isLargeVideo);
     case 'duplicates':
       return items.filter(isDuplicateCandidate);
+    default:
+      return items;
   }
 }
 

@@ -4,14 +4,17 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react';
 import { Platform } from 'react-native';
 
+import { loadCachedAlbums, saveCachedAlbums } from '@/services/albumCache';
+import { getCachedLibrarySummary } from '@/services/libraryScanService';
 import {
-  fetchLibrarySummary,
   fetchAlbums,
+  fetchLibrarySummary,
   getDemoAlbumAssets,
   getDemoAlbums,
   getDemoCleaningAssets,
@@ -30,6 +33,7 @@ import {
   isAndroidExpoGoMediaBlocked,
   type MediaAccessBlockReason,
 } from '@/utils/mediaLibraryAvailability';
+import { useSettings } from '@/contexts/SettingsContext';
 
 interface MediaLibraryContextValue {
   access: PhotoAccess;
@@ -37,6 +41,7 @@ interface MediaLibraryContextValue {
   cleaningAssets: SwipeItem[];
   albums: QuickCleanAlbum[];
   isLoading: boolean;
+  isCleaningAssetsLoading: boolean;
   error: string | null;
   isSupported: boolean;
   isDemoMode: boolean;
@@ -62,9 +67,11 @@ function mapAlbumsToQuickClean(albums: MediaAlbum[]): QuickCleanAlbum[] {
 }
 
 export function MediaLibraryProvider({ children }: { children: ReactNode }) {
+  const { skipHiddenItems } = useSettings();
   const [access, setAccess] = useState<PhotoAccess>('denied');
   const [summary, setSummary] = useState<LibrarySummary | null>(null);
   const [cleaningAssets, setCleaningAssets] = useState<SwipeItem[]>([]);
+  const [isCleaningAssetsLoading, setIsCleaningAssetsLoading] = useState(false);
   const [albums, setAlbums] = useState<QuickCleanAlbum[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -73,8 +80,38 @@ export function MediaLibraryProvider({ children }: { children: ReactNode }) {
   const [blockedReason, setBlockedReason] = useState<MediaAccessBlockReason | null>(
     null,
   );
+  const hasHydratedCacheRef = useRef(false);
 
   const isSupported = Platform.OS === 'ios' || Platform.OS === 'android';
+
+  useEffect(() => {
+    if (isAndroidExpoGoMediaBlocked() || isDemoMode) {
+      return;
+    }
+
+    let cancelled = false;
+
+    void (async () => {
+      const [cachedSummary, cachedAlbums] = await Promise.all([
+        getCachedLibrarySummary(skipHiddenItems),
+        loadCachedAlbums(skipHiddenItems),
+      ]);
+
+      if (!cancelled && cachedAlbums) {
+        setAlbums(mapAlbumsToQuickClean(cachedAlbums));
+      }
+
+      if (!cancelled && cachedSummary) {
+        setSummary(cachedSummary);
+        setIsLoading(false);
+        hasHydratedCacheRef.current = true;
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isDemoMode, skipHiddenItems]);
 
   const enableDemoMode = useCallback(() => {
     setIsDemoMode(true);
@@ -83,10 +120,10 @@ export function MediaLibraryProvider({ children }: { children: ReactNode }) {
     setAccess('all');
     setError(null);
     setSummary(getDemoLibrarySummary());
-    setCleaningAssets(getDemoCleaningAssets());
+    setCleaningAssets(getDemoCleaningAssets(skipHiddenItems));
     setAlbums(mapAlbumsToQuickClean(getDemoAlbums()));
     setIsLoading(false);
-  }, []);
+  }, [skipHiddenItems]);
 
   const applyBlockedState = useCallback((reason: MediaAccessBlockReason) => {
     setRequiresDevBuild(true);
@@ -111,16 +148,20 @@ export function MediaLibraryProvider({ children }: { children: ReactNode }) {
 
     if (isDemoMode) {
       setSummary(getDemoLibrarySummary());
-      setCleaningAssets(getDemoCleaningAssets());
+      setCleaningAssets(getDemoCleaningAssets(skipHiddenItems));
       setAlbums(mapAlbumsToQuickClean(getDemoAlbums()));
       setIsLoading(false);
       return;
     }
 
-    setIsLoading(true);
     setError(null);
     setRequiresDevBuild(false);
     setBlockedReason(null);
+
+    const showLoadingState = !hasHydratedCacheRef.current;
+    if (showLoadingState) {
+      setIsLoading(true);
+    }
 
     try {
       const accessResult = await getPhotoAccess();
@@ -139,15 +180,30 @@ export function MediaLibraryProvider({ children }: { children: ReactNode }) {
         return;
       }
 
-      const [librarySummary, assets, libraryAlbums] = await Promise.all([
-        fetchLibrarySummary(),
-        loadAssetsForCleaning(),
-        fetchAlbums(),
-      ]);
+      void fetchAlbums(skipHiddenItems).then((libraryAlbums) => {
+        setAlbums(mapAlbumsToQuickClean(libraryAlbums));
+        void saveCachedAlbums(libraryAlbums, skipHiddenItems);
+      });
 
+      const librarySummary = await fetchLibrarySummary(skipHiddenItems);
       setSummary(librarySummary);
-      setCleaningAssets(assets);
-      setAlbums(mapAlbumsToQuickClean(libraryAlbums));
+      hasHydratedCacheRef.current = true;
+      setIsLoading(false);
+
+      setIsCleaningAssetsLoading(true);
+      try {
+        const assets = await loadAssetsForCleaning(skipHiddenItems);
+        setCleaningAssets(assets);
+      } catch (cleaningLoadError) {
+        const message =
+          cleaningLoadError instanceof Error
+            ? cleaningLoadError.message
+            : 'Could not load photos for cleaning.';
+        setError(message);
+        setCleaningAssets([]);
+      } finally {
+        setIsCleaningAssetsLoading(false);
+      }
     } catch (refreshError) {
       const message =
         refreshError instanceof Error
@@ -157,7 +213,7 @@ export function MediaLibraryProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, [applyBlockedState, isDemoMode, isSupported]);
+  }, [applyBlockedState, isDemoMode, isSupported, skipHiddenItems]);
 
   useEffect(() => {
     if (isAndroidExpoGoMediaBlocked()) {
@@ -218,13 +274,14 @@ export function MediaLibraryProvider({ children }: { children: ReactNode }) {
 
   const loadCleaningBatch = useCallback(async () => {
     if (isDemoMode) {
-      const assets = getDemoCleaningAssets();
+      const assets = getDemoCleaningAssets(skipHiddenItems);
       setCleaningAssets(assets);
       return assets;
     }
 
+    setIsCleaningAssetsLoading(true);
     try {
-      const assets = await loadAssetsForCleaning();
+      const assets = await loadAssetsForCleaning(skipHiddenItems);
       setCleaningAssets(assets);
       return assets;
     } catch (loadError) {
@@ -234,17 +291,19 @@ export function MediaLibraryProvider({ children }: { children: ReactNode }) {
           : 'Could not load photos for cleaning.';
       setError(message);
       return [];
+    } finally {
+      setIsCleaningAssetsLoading(false);
     }
-  }, [isDemoMode]);
+  }, [isDemoMode, skipHiddenItems]);
 
   const loadAlbumAssets = useCallback(
     async (albumId: string) => {
       if (isDemoMode) {
-        return getDemoAlbumAssets(albumId);
+        return getDemoAlbumAssets(albumId, skipHiddenItems);
       }
 
       try {
-        return await loadAssetsForAlbum(albumId);
+        return await loadAssetsForAlbum(albumId, skipHiddenItems);
       } catch (loadError) {
         const message =
           loadError instanceof Error
@@ -254,7 +313,7 @@ export function MediaLibraryProvider({ children }: { children: ReactNode }) {
         return [];
       }
     },
-    [isDemoMode],
+    [isDemoMode, skipHiddenItems],
   );
 
   const value = useMemo(
@@ -264,6 +323,7 @@ export function MediaLibraryProvider({ children }: { children: ReactNode }) {
       cleaningAssets,
       albums,
       isLoading,
+      isCleaningAssetsLoading,
       error,
       isSupported,
       isDemoMode,
@@ -282,6 +342,7 @@ export function MediaLibraryProvider({ children }: { children: ReactNode }) {
       cleaningAssets,
       albums,
       isLoading,
+      isCleaningAssetsLoading,
       error,
       isSupported,
       isDemoMode,

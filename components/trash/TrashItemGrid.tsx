@@ -2,7 +2,7 @@ import { Image } from 'expo-image';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { getTrashThumbnailUri, type TrashItem } from '@/constants/mockTrash';
+import { getTrashThumbnailUri, type TrashItem } from '@/types/trash';
 import { theme } from '@/constants/theme';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { formatBytes } from '@/utils/formatBytes';
@@ -12,6 +12,7 @@ interface TrashItemGridProps {
   isSelecting: boolean;
   selectedIds: Set<string>;
   onToggleItem: (id: string) => void;
+  onRestoreItem: (id: string) => void;
 }
 
 function TrashGridCell({
@@ -21,6 +22,7 @@ function TrashGridCell({
   isSelecting,
   item,
   isSelected,
+  onRestoreItem,
   onToggleItem,
 }: {
   checkboxSize: number;
@@ -29,6 +31,7 @@ function TrashGridCell({
   isSelecting: boolean;
   item: TrashItem;
   isSelected: boolean;
+  onRestoreItem: (id: string) => void;
   onToggleItem: (id: string) => void;
 }) {
   return (
@@ -73,12 +76,30 @@ function TrashGridCell({
         >
           {isSelected ? <Text style={styles.checkmark}>✓</Text> : null}
         </View>
-      ) : null}
+      ) : (
+        <Pressable
+          hitSlop={6}
+          onPress={() => onRestoreItem(item.id)}
+          style={({ pressed }) => [
+            styles.restoreButton,
+            { right: inset, top: inset },
+            pressed && styles.pressed,
+          ]}
+        >
+          <Ionicons color={theme.colors.accent} name="arrow-undo-outline" size={14} />
+        </Pressable>
+      )}
     </Pressable>
   );
 }
 
-export function TrashItemGrid({ items, isSelecting, selectedIds, onToggleItem }: TrashItemGridProps) {
+export function TrashItemGrid({
+  items,
+  isSelecting,
+  selectedIds,
+  onRestoreItem,
+  onToggleItem,
+}: TrashItemGridProps) {
   const { scale, trashColumns } = useResponsiveLayout();
   const cellWidth = `${100 / trashColumns}%` as `${number}%`;
   const checkboxSize = scale(20, 0.2);
@@ -96,6 +117,7 @@ export function TrashItemGrid({ items, isSelecting, selectedIds, onToggleItem }:
             isSelecting={isSelecting}
             isSelected={selectedIds.has(item.id)}
             item={item}
+            onRestoreItem={onRestoreItem}
             onToggleItem={onToggleItem}
           />
         </View>
@@ -167,6 +189,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 3,
     minWidth: 0,
+  },
+  pressed: {
+    opacity: 0.85,
+  },
+  restoreButton: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    borderColor: theme.colors.accentRing,
+    borderRadius: theme.radius.pill,
+    borderWidth: 1,
+    height: 28,
+    justifyContent: 'center',
+    position: 'absolute',
+    width: 28,
   },
   thumbnail: {
     height: '100%',

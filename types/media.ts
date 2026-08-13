@@ -15,6 +15,7 @@ export interface MediaAsset {
 
 export type SwipeItem = MediaAsset & {
   fileSizeBytes: number;
+  isHidden?: boolean;
 };
 
 export type PhotoAccess = 'all' | 'limited' | 'denied';

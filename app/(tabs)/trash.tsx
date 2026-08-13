@@ -8,7 +8,7 @@ import { ScreenScrollView } from '@/components/layout/ScreenScrollView';
 import { TrashItemGrid } from '@/components/trash/TrashItemGrid';
 import { TrashSelectionBar } from '@/components/trash/TrashSelectionBar';
 import { TrashSummaryCard } from '@/components/trash/TrashSummaryCard';
-import { getTrashTotals } from '@/constants/mockTrash';
+import { getTrashTotals } from '@/types/trash';
 import { SETTINGS_ROUTE } from '@/constants/routes';
 import { useAppModal } from '@/contexts/AppModalContext';
 import { useSettings } from '@/contexts/SettingsContext';
@@ -20,12 +20,20 @@ import { formatBytes } from '@/utils/formatBytes';
 export default function TrashTabScreen() {
   const { showAlert, showConfirm } = useAppModal();
   const { recoveryRetentionDays } = useSettings();
-  const { items, permanentlyDelete, restoreFromTrash } = useTrash();
+  const { items, permanentlyDelete, restoreAllFromTrash, restoreFromTrash } = useTrash();
   const { screenTitleSize, settingsButtonSize } = useResponsiveLayout();
   const [isSelecting, setIsSelecting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
 
   const totals = useMemo(() => getTrashTotals(items), [items]);
+
+  const minDaysLeft = useMemo(() => {
+    if (items.length === 0) {
+      return recoveryRetentionDays;
+    }
+
+    return Math.min(...items.map((item) => item.daysLeft));
+  }, [items, recoveryRetentionDays]);
 
   const selectedItems = useMemo(
     () => items.filter((item) => selectedIds.has(item.id)),
@@ -67,20 +75,90 @@ export default function TrashTabScreen() {
   }, [isSelecting, items]);
 
   const handleRestore = useCallback(() => {
-    restoreFromTrash([...selectedIds]);
-    setSelectedIds(new Set());
-    setIsSelecting(false);
-  }, [restoreFromTrash, selectedIds]);
+    if (selectedItems.length === 0) {
+      return;
+    }
+
+    const count = selectedItems.length;
+    const itemLabel = count === 1 ? 'item' : 'items';
+
+    showConfirm({
+      title: 'Restore selected items?',
+      message: `${count} ${itemLabel} will be returned to your gallery and cleaning queue.`,
+      confirmText: 'Restore',
+      destructive: false,
+      onConfirm: () => {
+        const restoredCount = restoreFromTrash([...selectedIds]);
+        setSelectedIds(new Set());
+        setIsSelecting(false);
+
+        if (restoredCount > 0) {
+          showAlert({
+            title: 'Items restored',
+            message: `${restoredCount} ${restoredCount === 1 ? 'item' : 'items'} restored to your gallery.`,
+          });
+        }
+      },
+    });
+  }, [restoreFromTrash, selectedIds, selectedItems.length, showAlert, showConfirm]);
+
+  const handleRestoreItem = useCallback(
+    (id: string) => {
+      showConfirm({
+        title: 'Restore this item?',
+        message: 'It will be returned to your gallery and cleaning queue.',
+        confirmText: 'Restore',
+        destructive: false,
+        onConfirm: () => {
+          const restoredCount = restoreFromTrash([id]);
+
+          if (restoredCount > 0) {
+            showAlert({
+              title: 'Item restored',
+              message: 'The item has been restored to your gallery.',
+            });
+          }
+        },
+      });
+    },
+    [restoreFromTrash, showAlert, showConfirm],
+  );
+
+  const handleRestoreAll = useCallback(() => {
+    if (items.length === 0) {
+      return;
+    }
+
+    showConfirm({
+      title: 'Restore all items?',
+      message: `All ${items.length} items in Trash will be returned to your gallery and cleaning queue.`,
+      confirmText: 'Restore All',
+      destructive: false,
+      onConfirm: () => {
+        const restoredCount = restoreAllFromTrash();
+        setSelectedIds(new Set());
+        setIsSelecting(false);
+
+        if (restoredCount > 0) {
+          showAlert({
+            title: 'All items restored',
+            message: `${restoredCount} ${restoredCount === 1 ? 'item' : 'items'} restored to your gallery.`,
+          });
+        }
+      },
+    });
+  }, [items.length, restoreAllFromTrash, showAlert, showConfirm]);
 
   const handleDelete = useCallback(() => {
     showConfirm({
       title: 'Delete permanently?',
-      message: `This will permanently remove ${selectedItems.length} items (${formatBytes(selectedBytes)}).`,
+      message: `This will permanently remove ${selectedItems.length} items (${formatBytes(selectedBytes)}) from your gallery.`,
       confirmText: 'Delete',
       onConfirm: () => {
-        permanentlyDelete([...selectedIds]);
-        setSelectedIds(new Set());
-        setIsSelecting(false);
+        void permanentlyDelete([...selectedIds]).then(() => {
+          setSelectedIds(new Set());
+          setIsSelecting(false);
+        });
       },
     });
   }, [permanentlyDelete, selectedBytes, selectedIds, selectedItems.length, showConfirm]);
@@ -88,12 +166,13 @@ export default function TrashTabScreen() {
   const handleDeleteAll = useCallback(() => {
     showConfirm({
       title: 'Delete all now?',
-      message: 'All items in Trash will be permanently deleted.',
+      message: 'All items in Trash will be permanently deleted from your gallery.',
       confirmText: 'Delete All',
       onConfirm: () => {
-        permanentlyDelete(items.map((item) => item.id));
-        setSelectedIds(new Set());
-        setIsSelecting(false);
+        void permanentlyDelete(items.map((item) => item.id)).then(() => {
+          setSelectedIds(new Set());
+          setIsSelecting(false);
+        });
       },
     });
   }, [items, permanentlyDelete, showConfirm]);
@@ -101,7 +180,7 @@ export default function TrashTabScreen() {
   const handleLearnMore = useCallback(() => {
     showAlert({
       title: 'About Trash',
-      message: `Items you remove are kept here for ${recoveryRetentionDays} days. You can restore them anytime before they are permanently deleted.\n\nChange how long items stay in Trash in Settings under Recovery Vault.`,
+      message: `Items you remove are kept here for ${recoveryRetentionDays} days. Restore them anytime — they stay on your phone until you permanently delete them.\n\nChange how long items stay in Trash in Settings under Recovery Vault.`,
     });
   }, [recoveryRetentionDays, showAlert]);
 
@@ -129,14 +208,18 @@ export default function TrashTabScreen() {
             </Pressable>
           </View>
 
-          <TrashSummaryCard itemCount={totals.count} totalBytes={totals.bytes} />
+          <TrashSummaryCard
+            daysLeft={minDaysLeft}
+            itemCount={totals.count}
+            totalBytes={totals.bytes}
+          />
 
           <View style={styles.infoBanner}>
             <View style={styles.infoRow}>
               <Ionicons color={theme.colors.accent} name="shield-checkmark-outline" size={18} />
               <Text style={styles.infoText}>
-                Items in Trash are safe and can be restored. They will be permanently deleted after{' '}
-                {recoveryRetentionDays} days.
+                Items in Trash stay on your phone until permanently deleted. Tap the restore button
+                on any item, or use Restore All below.
               </Text>
             </View>
             <Pressable
@@ -147,6 +230,16 @@ export default function TrashTabScreen() {
               <Text style={styles.infoLink}>Learn more</Text>
             </Pressable>
           </View>
+
+          {items.length > 0 ? (
+            <Pressable
+              onPress={handleRestoreAll}
+              style={({ pressed }) => [styles.restoreAllButton, pressed && styles.pressed]}
+            >
+              <Ionicons color={theme.colors.accent} name="arrow-undo-outline" size={18} />
+              <Text style={styles.restoreAllLabel}>Restore All ({items.length})</Text>
+            </Pressable>
+          ) : null}
 
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Recently Removed</Text>
@@ -168,6 +261,7 @@ export default function TrashTabScreen() {
             <TrashItemGrid
               isSelecting={isSelecting}
               items={items}
+              onRestoreItem={handleRestoreItem}
               onToggleItem={toggleItem}
               selectedIds={selectedIds}
             />
@@ -262,6 +356,23 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: theme.typography.caption,
     lineHeight: 18,
+  },
+  restoreAllButton: {
+    alignItems: 'center',
+    backgroundColor: theme.colors.accentSoft,
+    borderColor: theme.colors.accentRing,
+    borderRadius: theme.radius.lg,
+    borderWidth: 1,
+    flexDirection: 'row',
+    gap: theme.spacing.sm,
+    justifyContent: 'center',
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+  },
+  restoreAllLabel: {
+    color: theme.colors.accent,
+    fontSize: theme.typography.body,
+    fontWeight: '700',
   },
   safeArea: {
     backgroundColor: theme.colors.background,

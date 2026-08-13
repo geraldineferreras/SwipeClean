@@ -27,13 +27,13 @@ export function HomeQuickCleanSection({ summary }: HomeQuickCleanSectionProps) {
   }, []);
 
   const handleViewAll = useCallback(() => {
-    router.push('/albums');
+    router.push('/clean');
   }, []);
 
   return (
     <View style={styles.container}>
       <View style={styles.headerRow}>
-        <Text style={styles.heading}>Albums</Text>
+        <Text style={styles.heading}>Quick Clean</Text>
         <Pressable
           hitSlop={8}
           onPress={handleViewAll}
@@ -47,6 +47,7 @@ export function HomeQuickCleanSection({ summary }: HomeQuickCleanSectionProps) {
       <View style={styles.card}>
         {HOME_CATEGORY_ROWS.map((row, index) => {
           const count = summary.quickClean[row.key] ?? 0;
+          const storageBytes = summary.quickCleanBytes[row.key] ?? 0;
 
           return (
             <Pressable
@@ -71,7 +72,7 @@ export function HomeQuickCleanSection({ summary }: HomeQuickCleanSectionProps) {
 
               <View style={styles.trailing}>
                 <Text numberOfLines={1} style={styles.storage}>
-                  {formatBytes(row.storageBytes)}
+                  {formatBytes(storageBytes)}
                 </Text>
                 <Ionicons color={theme.colors.textMuted} name="chevron-forward" size={18} />
               </View>

@@ -14,8 +14,8 @@ import { HOME_ROUTE } from '@/constants/routes';
 import { theme } from '@/constants/theme';
 import { useCleanupSessionContext } from '@/contexts/CleanupSessionContext';
 import { useTrash } from '@/contexts/TrashContext';
-import { deleteMarkedAssets } from '@/services/deletionService';
 import type { CleanupSessionItem } from '@/types/cleanup';
+import { resolveAssetDisplayUri } from '@/utils/mediaHelpers';
 import { formatBytes } from '@/utils/formatBytes';
 
 function buildSelectedSet(items: CleanupSessionItem[]): Set<string> {
@@ -90,27 +90,26 @@ export default function ReviewScreen() {
   }, [resetSession]);
 
   const performDelete = useCallback(async () => {
-    setIsDeleting(true);
-
-    const assetIds = selectedItems.map((item) => item.assetId);
-    const result = await deleteMarkedAssets(assetIds);
-
-    setIsDeleting(false);
-
-    if (!result.success) {
-      setErrorMessage(
-        result.errors.join('\n') || 'Could not delete the selected items.',
-      );
-      return;
-    }
+    const thumbnailEntries = await Promise.all(
+      selectedItems.map(async (item) => ({
+        assetId: item.assetId,
+        thumbnailUri: await resolveAssetDisplayUri({
+          id: item.assetId,
+          uri: item.uri,
+        }),
+      })),
+    );
+    const thumbnailUris = Object.fromEntries(
+      thumbnailEntries.map((entry) => [entry.assetId, entry.thumbnailUri]),
+    );
 
     setLastCleanupResult({
-      deletedCount: result.deletedCount,
+      deletedCount: selectedItems.length,
       photoCount,
       videoCount,
       freedBytes: totalBytes,
     });
-    addSessionItemsToTrash(selectedItems);
+    addSessionItemsToTrash(selectedItems, thumbnailUris);
     resetSession();
     router.replace('/complete');
   }, [
@@ -134,7 +133,7 @@ export default function ReviewScreen() {
   const deleteConfirmMessage = useMemo(() => {
     const itemLabel = selectedItems.length === 1 ? 'item' : 'items';
 
-    return `This will move ${selectedItems.length} ${itemLabel} (${formatBytes(totalBytes)}) to Trash.\n\nYour device may ask you to confirm again.`;
+    return `This will move ${selectedItems.length} ${itemLabel} (${formatBytes(totalBytes)}) to Trash.\n\nYou can restore them from the Trash tab before permanently deleting.`;
   }, [selectedItems.length, totalBytes]);
 
   const handlePreviewAll = useCallback(() => {
@@ -206,7 +205,7 @@ export default function ReviewScreen() {
 
         <ConfirmDialog
           cancelLabel="Cancel"
-          confirmLabel="Remove"
+          confirmLabel="Move to Trash"
           destructive
           message={deleteConfirmMessage}
           onCancel={() => setShowDeleteConfirm(false)}
@@ -214,7 +213,7 @@ export default function ReviewScreen() {
             setShowDeleteConfirm(false);
             void performDelete();
           }}
-          title="Remove selected items?"
+          title="Move selected items to Trash?"
           visible={showDeleteConfirm}
         />
 

@@ -11,22 +11,22 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { LargestFileCard } from '@/components/insights/LargestFileCard';
+import { SegmentedStorageDonut } from '@/components/insights/SegmentedStorageDonut';
 import {
-  INSIGHTS_CATEGORY_DETAIL_ROWS,
   INSIGHTS_LARGEST_FILES_PREVIEW_COUNT,
-  INSIGHTS_STORAGE_SEGMENTS,
 } from '@/constants/insightsData';
 import { LARGEST_FILES_ROUTE } from '@/constants/routes';
-import { mockLibrarySummary } from '@/constants/mockLibraryStats';
+import type { LibrarySummary } from '@/types/cleanup';
 import { theme } from '@/constants/theme';
-import { useTrash } from '@/contexts/TrashContext';
-import { formatBytes, formatCount } from '@/utils/formatBytes';
+import { formatBytes, formatCount, formatDeviceStorage, formatMediaLibraryBytes } from '@/utils/formatBytes';
+import { buildInsightsCategoryDetailRows, buildStorageOverviewSegments } from '@/utils/insightsSummary';
 
 interface StorageOverviewCardProps {
   donutInnerSize: number;
   donutSize: number;
   font: (size: number) => number;
   isTablet: boolean;
+  summary: LibrarySummary;
 }
 
 const DETAILS_MAX_HEIGHT = 920;
@@ -36,17 +36,17 @@ export function StorageOverviewCard({
   donutSize,
   font,
   isTablet,
+  summary,
 }: StorageOverviewCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [showPercent, setShowPercent] = useState(false);
   const expansion = useSharedValue(0);
-  const { largestFiles } = useTrash();
 
-  const availableBytes =
-    mockLibrarySummary.totalStorageBytes - mockLibrarySummary.storageUsedBytes;
-  const availablePercent = Math.round(
-    (availableBytes / mockLibrarySummary.totalStorageBytes) * 100,
+  const availableBytes = summary.deviceFreeBytes;
+  const freePercent = Math.round(
+    (availableBytes / Math.max(summary.totalStorageBytes, 1)) * 100,
   );
+  const storageSegments = buildStorageOverviewSegments(summary);
 
   const toggleDetails = useCallback(() => {
     const next = !isExpanded;
@@ -69,7 +69,8 @@ export function StorageOverviewCard({
     router.push(LARGEST_FILES_ROUTE);
   }, []);
 
-  const previewFiles = largestFiles.slice(0, INSIGHTS_LARGEST_FILES_PREVIEW_COUNT);
+  const previewFiles = summary.largestFiles.slice(0, INSIGHTS_LARGEST_FILES_PREVIEW_COUNT);
+  const categoryRows = buildInsightsCategoryDetailRows(summary);
 
   const detailsStyle = useAnimatedStyle(() => ({
     maxHeight: interpolate(expansion.value, [0, 1], [0, DETAILS_MAX_HEIGHT]),
@@ -99,12 +100,7 @@ export function StorageOverviewCard({
 
       <View style={[styles.storageRow, isTablet && styles.storageRowTablet]}>
         <View style={[styles.donutWrap, { height: donutSize, width: donutSize }]}>
-          <View
-            style={[
-              styles.donutTrack,
-              { borderRadius: donutSize / 2, height: donutSize, width: donutSize },
-            ]}
-          />
+          <SegmentedStorageDonut segments={storageSegments} size={donutSize} strokeWidth={10} />
           <View
             style={[
               styles.donutInner,
@@ -112,16 +108,19 @@ export function StorageOverviewCard({
             ]}
           >
             <Text style={[styles.donutValue, { fontSize: font(13) }]}>
-              {formatBytes(mockLibrarySummary.storageUsedBytes)}
+              {formatDeviceStorage(summary.deviceUsedBytes)}
             </Text>
             <Text style={styles.donutCaption}>
-              used of {formatBytes(mockLibrarySummary.totalStorageBytes)}
+              used of {formatDeviceStorage(summary.totalStorageBytes)}
+            </Text>
+            <Text style={styles.donutMediaCaption}>
+              {formatMediaLibraryBytes(summary)} photos & videos
             </Text>
           </View>
         </View>
 
         <View style={styles.legendColumn}>
-          {INSIGHTS_STORAGE_SEGMENTS.map((segment) => (
+          {storageSegments.map((segment) => (
             <View key={segment.label} style={styles.legendRow}>
               <View style={[styles.legendDot, { backgroundColor: segment.color }]} />
               <View style={styles.legendTextBlock}>
@@ -139,9 +138,9 @@ export function StorageOverviewCard({
 
       <View style={styles.availableRow}>
         <Ionicons color={theme.colors.textMuted} name="phone-portrait-outline" size={16} />
-        <Text style={styles.availableText}>{formatBytes(availableBytes)} available</Text>
+        <Text style={styles.availableText}>{formatDeviceStorage(availableBytes)} available</Text>
         <View style={styles.availableTrack}>
-          <View style={[styles.availableFill, { width: `${availablePercent}%` }]} />
+          <View style={[styles.availableFill, { width: `${freePercent}%` }]} />
         </View>
       </View>
 
@@ -169,7 +168,7 @@ export function StorageOverviewCard({
           </View>
 
           <View style={styles.categoryList}>
-            {INSIGHTS_CATEGORY_DETAIL_ROWS.map((row) => (
+            {categoryRows.map((row) => (
               <View key={row.label} style={styles.categoryRow}>
                 <View style={[styles.categoryIcon, { backgroundColor: row.softColor }]}>
                   <Ionicons color={row.color} name={row.icon} size={16} />
@@ -364,15 +363,17 @@ const styles = StyleSheet.create({
     fontSize: 10,
     textAlign: 'center',
   },
+  donutMediaCaption: {
+    color: theme.colors.textMuted,
+    fontSize: 9,
+    marginTop: 2,
+    textAlign: 'center',
+  },
   donutInner: {
     alignItems: 'center',
     backgroundColor: theme.colors.surface,
     justifyContent: 'center',
     paddingHorizontal: theme.spacing.sm,
-  },
-  donutTrack: {
-    borderColor: theme.colors.accentRing,
-    borderWidth: 10,
     position: 'absolute',
   },
   donutValue: {
@@ -384,6 +385,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexShrink: 0,
     justifyContent: 'center',
+    position: 'relative',
   },
   fileCard: {
     width: 132,

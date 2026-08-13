@@ -4,13 +4,16 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { theme } from '@/constants/theme';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
-import { formatBytes, formatCount } from '@/utils/formatBytes';
+import { formatBytes, formatCount, formatDeviceStorage, formatMediaLibraryBytes } from '@/utils/formatBytes';
 
 interface StorageOverviewCardProps {
   photoCount: number;
   videoCount: number;
   otherCount: number;
-  storageUsedBytes: number;
+  mediaLibraryBytes: number;
+  measuredAssetCount: number;
+  scannedAssetCount: number;
+  deviceUsedBytes: number;
   totalStorageBytes: number;
 }
 
@@ -55,13 +58,16 @@ export function StorageOverviewCard({
   photoCount,
   videoCount,
   otherCount,
-  storageUsedBytes,
+  mediaLibraryBytes,
+  measuredAssetCount,
+  scannedAssetCount,
+  deviceUsedBytes,
   totalStorageBytes,
 }: StorageOverviewCardProps) {
   const { font, heroValueSize, isTablet, scale } = useResponsiveLayout();
   const ringSize = scale(isTablet ? 104 : 92);
   const usageRatio =
-    totalStorageBytes > 0 ? storageUsedBytes / totalStorageBytes : 0;
+    totalStorageBytes > 0 ? deviceUsedBytes / totalStorageBytes : 0;
   const usagePercent = Math.round(usageRatio * 100);
 
   return (
@@ -71,9 +77,19 @@ export function StorageOverviewCard({
 
         <View style={styles.summaryColumn}>
           <Text style={[styles.usedValue, { fontSize: heroValueSize }]}>
-            {formatBytes(storageUsedBytes)}
+            {formatDeviceStorage(deviceUsedBytes)}
           </Text>
-          <Text style={styles.usedCaption}>of {formatBytes(totalStorageBytes)} used</Text>
+          <Text style={styles.usedCaption}>
+            of {formatDeviceStorage(totalStorageBytes)} used
+          </Text>
+          <Text style={styles.mediaCaption}>
+            {formatMediaLibraryBytes({
+              storageUsedBytes: mediaLibraryBytes,
+              measuredAssetCount,
+              scannedAssetCount,
+            })}{' '}
+            in photos & videos
+          </Text>
 
           <View style={styles.progressTrack}>
             <View style={[styles.progressFill, { width: `${usagePercent}%` }]} />
@@ -232,6 +248,11 @@ const styles = StyleSheet.create({
   usedCaption: {
     color: theme.colors.textSecondary,
     fontSize: theme.typography.caption,
+    marginTop: 2,
+  },
+  mediaCaption: {
+    color: theme.colors.textMuted,
+    fontSize: 11,
     marginTop: 2,
   },
   usedValue: {

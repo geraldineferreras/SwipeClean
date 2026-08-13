@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useCallback } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { AlbumGrid } from '@/components/albums/AlbumGrid';
@@ -11,7 +11,7 @@ import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import type { QuickCleanAlbum } from '@/types/cleanup';
 
 export default function AlbumsTabScreen() {
-  const { albums } = useMediaLibrary();
+  const { albums, isLoading } = useMediaLibrary();
   const { screenTitleSize } = useResponsiveLayout();
 
   const handleAlbumPress = useCallback((album: QuickCleanAlbum) => {
@@ -32,7 +32,14 @@ export default function AlbumsTabScreen() {
           <Text style={styles.subtitle}>Browse and clean by album</Text>
         </View>
 
-        <AlbumGrid albums={albums} onAlbumPress={handleAlbumPress} />
+        {isLoading && albums.length === 0 ? (
+          <View style={styles.loadingRow}>
+            <ActivityIndicator color={theme.colors.accent} />
+            <Text style={styles.loadingText}>Loading albums…</Text>
+          </View>
+        ) : (
+          <AlbumGrid albums={albums} onAlbumPress={handleAlbumPress} />
+        )}
       </ScreenFrame>
     </SafeAreaView>
   );
@@ -43,6 +50,17 @@ const styles = StyleSheet.create({
     gap: theme.spacing.xs,
     paddingBottom: theme.spacing.sm,
     paddingTop: theme.spacing.md,
+  },
+  loadingRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: theme.spacing.sm,
+    justifyContent: 'center',
+    paddingVertical: theme.spacing.xl,
+  },
+  loadingText: {
+    color: theme.colors.textSecondary,
+    fontSize: theme.typography.body,
   },
   safeArea: {
     backgroundColor: theme.colors.background,

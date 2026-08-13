@@ -13,8 +13,8 @@ import { theme } from '@/constants/theme';
 
 export default function RootLayout() {
   return (
-    <MediaLibraryProvider>
-      <SettingsProvider>
+    <SettingsProvider>
+      <MediaLibraryProvider>
         <TrashProvider>
           <CleanupSessionProvider>
             <AppModalProvider>
@@ -36,8 +36,8 @@ export default function RootLayout() {
             </AppModalProvider>
           </CleanupSessionProvider>
         </TrashProvider>
-      </SettingsProvider>
-    </MediaLibraryProvider>
+      </MediaLibraryProvider>
+    </SettingsProvider>
   );
 }
 

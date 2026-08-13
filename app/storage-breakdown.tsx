@@ -5,14 +5,18 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { StorageSpaceRow } from '@/components/insights/StorageSpaceRow';
 import { ScreenFrame } from '@/components/layout/ScreenFrame';
-import { INSIGHTS_CATEGORY_DETAIL_ROWS } from '@/constants/insightsData';
-import { mockLibrarySummary } from '@/constants/mockLibraryStats';
 import { theme } from '@/constants/theme';
+import { useMediaLibrary } from '@/hooks/useMediaLibrary';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
-import { formatBytes } from '@/utils/formatBytes';
+import { mockLibrarySummary } from '@/constants/mockLibraryStats';
+import { formatBytes, formatDeviceStorage, formatMediaLibraryBytes } from '@/utils/formatBytes';
+import { buildInsightsCategoryDetailRows } from '@/utils/insightsSummary';
 
 export default function StorageBreakdownScreen() {
   const { contentPadding, scale, settingsButtonSize } = useResponsiveLayout();
+  const { summary } = useMediaLibrary();
+  const displaySummary = summary ?? mockLibrarySummary;
+  const categoryRows = buildInsightsCategoryDetailRows(displaySummary);
   const miniDonutSize = scale(72);
 
   return (
@@ -35,8 +39,8 @@ export default function StorageBreakdownScreen() {
             <View style={styles.headerText}>
               <Text style={styles.title}>What&apos;s taking up space?</Text>
               <Text style={styles.subtitle}>
-                {formatBytes(mockLibrarySummary.storageUsedBytes)} used of{' '}
-                {formatBytes(mockLibrarySummary.totalStorageBytes)}
+                {formatDeviceStorage(displaySummary.deviceUsedBytes)} used on device ·{' '}
+                {formatMediaLibraryBytes(displaySummary)} in photos & videos
               </Text>
             </View>
             <View style={{ width: settingsButtonSize }} />
@@ -63,7 +67,7 @@ export default function StorageBreakdownScreen() {
             </View>
 
             <View style={styles.listCard}>
-              {INSIGHTS_CATEGORY_DETAIL_ROWS.map((row) => (
+              {categoryRows.map((row) => (
                 <StorageSpaceRow
                   bytes={row.bytes}
                   color={row.color}

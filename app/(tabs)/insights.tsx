@@ -7,16 +7,15 @@ import { ScreenScrollView } from '@/components/layout/ScreenScrollView';
 import { SavingsSparkline } from '@/components/home/SavingsSparkline';
 import { StorageOverviewCard } from '@/components/insights/StorageOverviewCard';
 import { StorageSpaceRow } from '@/components/insights/StorageSpaceRow';
-import {
-  INSIGHTS_RECOVERED_BYTES,
-  INSIGHTS_SESSION_COUNT,
-  INSIGHTS_SPACE_ROWS,
-} from '@/constants/insightsData';
-import { mockLibrarySummary } from '@/constants/mockLibraryStats';
 import { SETTINGS_ROUTE, STORAGE_BREAKDOWN_ROUTE } from '@/constants/routes';
 import { theme } from '@/constants/theme';
+import { useTrash } from '@/contexts/TrashContext';
+import { useMediaLibrary } from '@/hooks/useMediaLibrary';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
+import { formatMediaDate } from '@/utils/formatDate';
 import { formatBytes, formatCount } from '@/utils/formatBytes';
+import { INSIGHTS_SEGMENT_COLORS, buildInsightsSpaceRows } from '@/utils/insightsSummary';
+import { formatLibraryAge } from '@/utils/libraryInsights';
 
 export default function InsightsTabScreen() {
   const {
@@ -28,6 +27,51 @@ export default function InsightsTabScreen() {
     settingsButtonSize,
     statTileWidth,
   } = useResponsiveLayout();
+  const { summary, isLoading, isDemoMode } = useMediaLibrary();
+  const { items: trashItems } = useTrash();
+  if (!summary && !isDemoMode) {
+    return (
+      <SafeAreaView edges={['top']} style={styles.safeArea}>
+        <ScreenScrollView innerStyle={styles.content} showsVerticalScrollIndicator={false}>
+          <View style={styles.header}>
+            <View style={styles.headerText}>
+              <Text style={[styles.title, { fontSize: screenTitleSize }]}>Insights</Text>
+              <Text style={styles.subtitle}>Understand your library and free up more space.</Text>
+            </View>
+          </View>
+          <View style={styles.loadingRow}>
+            <Text style={styles.loadingText}>
+              {isLoading ? 'Loading your library…' : 'Photo access needed for insights.'}
+            </Text>
+          </View>
+        </ScreenScrollView>
+      </SafeAreaView>
+    );
+  }
+
+  const displaySummary = summary!;
+  const spaceRows = buildInsightsSpaceRows(displaySummary);
+  const screenshotCount = displaySummary.quickClean.screenshots;
+  const screenshotBytes = displaySummary.quickCleanBytes.screenshots;
+  const recoverableBytes = displaySummary.potentialSavingsBytes;
+  const recoveredBytes = trashItems.reduce((sum, item) => sum + item.fileSizeBytes, 0);
+  const photoSubtitle = formatBytes(displaySummary.photoStorageBytes);
+  const videoSubtitle = formatBytes(displaySummary.videoStorageBytes);
+  const oldestMediaLabel = formatLibraryAge(displaySummary.oldestMediaTimestamp);
+  const oldestMediaSubtitle =
+    displaySummary.oldestMediaTimestamp === null
+      ? 'Scanning library'
+      : formatMediaDate(displaySummary.oldestMediaTimestamp);
+  const highestResolutionLabel =
+    displaySummary.highestResolutionMegapixels > 0
+      ? `${Math.round(displaySummary.highestResolutionMegapixels)} MP`
+      : '—';
+  const highestResolutionSubtitle =
+    displaySummary.highestResolutionPhotoCount > 0
+      ? `${formatCount(displaySummary.highestResolutionPhotoCount)} photo${
+          displaySummary.highestResolutionPhotoCount === 1 ? '' : 's'
+        }`
+      : 'No photos scanned';
 
   const donutSize = scale(isTablet ? 120 : 112);
   const donutInnerSize = scale(isTablet ? 96 : 88);
@@ -57,6 +101,7 @@ export default function InsightsTabScreen() {
           donutSize={donutSize}
           font={font}
           isTablet={isTablet}
+          summary={displaySummary}
         />
 
         <View style={styles.recoveredCard}>
@@ -68,16 +113,34 @@ export default function InsightsTabScreen() {
               <View style={styles.recoveredText}>
                 <Text style={styles.recoveredLabel}>Total Space Recovered</Text>
                 <Text style={[styles.recoveredValue, { fontSize: heroValueSize }]}>
-                  {formatBytes(INSIGHTS_RECOVERED_BYTES)}
+                  {formatBytes(recoveredBytes)}
                 </Text>
-                <Text style={styles.recoveredMeta}>From {INSIGHTS_SESSION_COUNT} cleanup sessions</Text>
+                <Text style={styles.recoveredMeta}>
+                  {trashItems.length === 0
+                    ? 'No items moved to trash yet'
+                    : `${formatCount(trashItems.length)} item${
+                        trashItems.length === 1 ? '' : 's'
+                      } in trash`}
+                </Text>
               </View>
             </View>
-            <View style={styles.sparklineWrap}>
-              <SavingsSparkline height={scale(44)} width={scale(76)} />
-            </View>
+            {recoveredBytes > 0 ? (
+              <View style={styles.sparklineWrap}>
+                <SavingsSparkline height={scale(44)} width={scale(76)} />
+              </View>
+            ) : null}
           </View>
-          <Text style={styles.recoveredDelta}>↑ +{formatBytes(INSIGHTS_RECOVERED_BYTES)} vs last 7 days</Text>
+          {recoveredBytes > 0 ? (
+            <Text style={styles.recoveredDelta}>
+              {formatBytes(recoverableBytes)} more recoverable from quick clean
+            </Text>
+          ) : (
+            <Text style={styles.recoveredDeltaMuted}>
+              {recoverableBytes > 0
+                ? `${formatBytes(recoverableBytes)} recoverable from quick clean`
+                : 'Start cleaning to recover space'}
+            </Text>
+          )}
         </View>
 
         <View style={styles.card}>
@@ -103,7 +166,7 @@ export default function InsightsTabScreen() {
             </View>
 
             <View style={styles.spaceList}>
-              {INSIGHTS_SPACE_ROWS.map((row) => (
+              {spaceRows.map((row) => (
                 <StorageSpaceRow
                   bytes={row.bytes}
                   color={row.color}
@@ -120,20 +183,20 @@ export default function InsightsTabScreen() {
 
         <View style={styles.statsGrid}>
           <StatTile
-            color={theme.colors.accent}
+            color={INSIGHTS_SEGMENT_COLORS.photos.color}
             icon="image-outline"
-            softColor={theme.colors.accentSoft}
-            subtitle="+142 this week"
-            title={formatCount(mockLibrarySummary.photoCount)}
+            softColor={INSIGHTS_SEGMENT_COLORS.photos.softColor}
+            subtitle={photoSubtitle}
+            title={formatCount(displaySummary.photoCount)}
             valueLabel="Photos"
             width={statTileWidth}
           />
           <StatTile
-            color={theme.colors.categoryPurple}
+            color={INSIGHTS_SEGMENT_COLORS.videos.color}
             icon="videocam-outline"
-            softColor={theme.colors.categoryPurpleSoft}
-            subtitle="+8 this week"
-            title={formatCount(mockLibrarySummary.videoCount)}
+            softColor={INSIGHTS_SEGMENT_COLORS.videos.softColor}
+            subtitle={videoSubtitle}
+            title={formatCount(displaySummary.videoCount)}
             valueLabel="Videos"
             width={statTileWidth}
           />
@@ -141,8 +204,8 @@ export default function InsightsTabScreen() {
             color={theme.colors.categoryOrange}
             icon="calendar-outline"
             softColor={theme.colors.categoryOrangeSoft}
-            subtitle="Jul 23, 2021"
-            title="2.6 yrs"
+            subtitle={oldestMediaSubtitle}
+            title={oldestMediaLabel}
             valueLabel="Oldest media"
             width={statTileWidth}
           />
@@ -150,8 +213,8 @@ export default function InsightsTabScreen() {
             color={theme.colors.keep}
             icon="camera-outline"
             softColor={theme.colors.keepSoft}
-            subtitle="5 photos"
-            title="108 MP"
+            subtitle={highestResolutionSubtitle}
+            title={highestResolutionLabel}
             valueLabel="Highest resolution"
             width={statTileWidth}
           />
@@ -162,9 +225,12 @@ export default function InsightsTabScreen() {
             <Ionicons color={theme.colors.categoryPurple} name="bulb-outline" size={20} />
           </View>
           <View style={styles.tipContent}>
-            <Text style={styles.tipTitle}>You have 487 screenshots</Text>
+            <Text style={styles.tipTitle}>
+              You have {formatCount(screenshotCount)} screenshots
+            </Text>
             <Text style={styles.tipBody}>
-              Screenshots usually aren&apos;t memories. Review and clean them to free up 1.2 GB.
+              Screenshots usually aren&apos;t memories. Review and clean them to free up{' '}
+              {formatBytes(screenshotBytes)}.
             </Text>
           </View>
           <Pressable
@@ -278,6 +344,22 @@ const styles = StyleSheet.create({
     color: theme.colors.savings,
     fontSize: theme.typography.caption,
     fontWeight: '700',
+  },
+  recoveredDeltaMuted: {
+    color: theme.colors.textMuted,
+    fontSize: theme.typography.caption,
+    fontWeight: '600',
+  },
+  loadingRow: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 160,
+    paddingVertical: theme.spacing.xl,
+  },
+  loadingText: {
+    color: theme.colors.textSecondary,
+    fontSize: theme.typography.body,
+    textAlign: 'center',
   },
   recoveredIcon: {
     alignItems: 'center',
