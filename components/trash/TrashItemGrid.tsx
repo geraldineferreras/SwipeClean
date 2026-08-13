@@ -9,6 +9,7 @@ import { formatBytes } from '@/utils/formatBytes';
 
 interface TrashItemGridProps {
   items: TrashItem[];
+  isSelecting: boolean;
   selectedIds: Set<string>;
   onToggleItem: (id: string) => void;
 }
@@ -17,6 +18,7 @@ function TrashGridCell({
   checkboxSize,
   iconSize,
   inset,
+  isSelecting,
   item,
   isSelected,
   onToggleItem,
@@ -24,6 +26,7 @@ function TrashGridCell({
   checkboxSize: number;
   iconSize: number;
   inset: number;
+  isSelecting: boolean;
   item: TrashItem;
   isSelected: boolean;
   onToggleItem: (id: string) => void;
@@ -31,7 +34,7 @@ function TrashGridCell({
   return (
     <Pressable
       onPress={() => onToggleItem(item.id)}
-      style={[styles.cell, isSelected && styles.cellSelected]}
+      style={[styles.cell, isSelecting && isSelected && styles.cellSelected]}
     >
       <Image
         contentFit="cover"
@@ -55,25 +58,27 @@ function TrashGridCell({
         </Text>
       </View>
 
-      <View
-        style={[
-          styles.checkbox,
-          {
-            height: checkboxSize,
-            right: inset,
-            top: inset,
-            width: checkboxSize,
-          },
-          isSelected && styles.checkboxSelected,
-        ]}
-      >
-        {isSelected ? <Text style={styles.checkmark}>✓</Text> : null}
-      </View>
+      {isSelecting ? (
+        <View
+          style={[
+            styles.checkbox,
+            {
+              height: checkboxSize,
+              right: inset,
+              top: inset,
+              width: checkboxSize,
+            },
+            isSelected && styles.checkboxSelected,
+          ]}
+        >
+          {isSelected ? <Text style={styles.checkmark}>✓</Text> : null}
+        </View>
+      ) : null}
     </Pressable>
   );
 }
 
-export function TrashItemGrid({ items, selectedIds, onToggleItem }: TrashItemGridProps) {
+export function TrashItemGrid({ items, isSelecting, selectedIds, onToggleItem }: TrashItemGridProps) {
   const { scale, trashColumns } = useResponsiveLayout();
   const cellWidth = `${100 / trashColumns}%` as `${number}%`;
   const checkboxSize = scale(20, 0.2);
@@ -88,6 +93,7 @@ export function TrashItemGrid({ items, selectedIds, onToggleItem }: TrashItemGri
             checkboxSize={checkboxSize}
             iconSize={iconSize}
             inset={inset}
+            isSelecting={isSelecting}
             isSelected={selectedIds.has(item.id)}
             item={item}
             onToggleItem={onToggleItem}

@@ -1,6 +1,6 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
-import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SettingsLinkRow, SettingsRowCard } from '@/components/settings/SettingsRowCard';
@@ -12,10 +12,12 @@ import {
   RECOVERY_RETENTION_OPTIONS,
 } from '@/constants/settingsData';
 import { theme } from '@/constants/theme';
+import { useAppModal } from '@/contexts/AppModalContext';
 import { useSettings } from '@/contexts/SettingsContext';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 
 export default function SettingsScreen() {
+  const { showAlert, showOptions } = useAppModal();
   const {
     aiSuggestionsEnabled,
     recoveryRetentionDays,
@@ -27,33 +29,42 @@ export default function SettingsScreen() {
   const { scrollBottomPadding, settingsButtonSize } = useResponsiveLayout();
 
   const handleRetentionPress = () => {
-    Alert.alert(
-      'Recovery Vault',
-      'Choose how long deleted items stay in Trash before permanent deletion.',
-      [
-        ...RECOVERY_RETENTION_OPTIONS.map((days) => ({
-          text: `${days} days`,
-          onPress: () => setRecoveryRetentionDays(days),
-        })),
-        { text: 'Cancel', style: 'cancel' },
-      ],
-    );
+    showOptions({
+      title: 'Recovery Vault',
+      message: 'Choose how long deleted items stay in Trash before permanent deletion.',
+      options: RECOVERY_RETENTION_OPTIONS.map((days) => `${days} days`),
+      onSelect: (index) => {
+        const days = RECOVERY_RETENTION_OPTIONS[index];
+        if (days !== undefined) {
+          setRecoveryRetentionDays(days);
+        }
+      },
+    });
   };
 
   const handleAboutPress = (id: string, label: string, url?: string) => {
     if (id === 'rate') {
-      Alert.alert('Rate Us', 'App Store rating will be available in a future update.');
+      showAlert({
+        title: 'Rate Us',
+        message: 'App Store rating will be available in a future update.',
+      });
       return;
     }
 
     if (url) {
       void Linking.openURL(url).catch(() => {
-        Alert.alert(label, 'This link is not available yet.');
+        showAlert({
+          title: label,
+          message: 'This link is not available yet.',
+        });
       });
       return;
     }
 
-    Alert.alert(label, 'Coming soon.');
+    showAlert({
+      title: label,
+      message: 'Coming soon.',
+    });
   };
 
   return (

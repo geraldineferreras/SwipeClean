@@ -1,6 +1,6 @@
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Linking, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ActionBar } from '@/components/clean/ActionBar';
@@ -11,6 +11,7 @@ import { SimilarPhotosChip } from '@/components/clean/SimilarPhotosChip';
 import { SwipeCardStack, type SwipeCardRef } from '@/components/clean/SwipeCard';
 import { HOME_ROUTE } from '@/constants/routes';
 import { theme } from '@/constants/theme';
+import { useAppModal } from '@/contexts/AppModalContext';
 import { useCleanupSessionContext } from '@/contexts/CleanupSessionContext';
 import { useMediaLibrary } from '@/hooks/useMediaLibrary';
 import { useSwipeSounds } from '@/hooks/useSwipeSounds';
@@ -26,6 +27,7 @@ import { formatBytes } from '@/utils/formatBytes';
 import { formatMediaDate } from '@/utils/formatDate';
 
 export default function CleanScreen() {
+  const { showAlert } = useAppModal();
   const swipeRef = useRef<SwipeCardRef>(null);
   const [isAnimating, setIsAnimating] = useState(false);
   const lastInitKeyRef = useRef<string | null>(null);
@@ -234,16 +236,22 @@ export default function CleanScreen() {
     [currentItem],
   );
 
-  const handleDetailsPress = useCallback((item: SwipeItem) => {
-    Alert.alert(
-      item.filename,
-      `${formatBytes(item.fileSizeBytes)} · ${formatMediaDate(item.creationTime)}\n${item.width} x ${item.height}`,
-    );
-  }, []);
+  const handleDetailsPress = useCallback(
+    (item: SwipeItem) => {
+      showAlert({
+        title: item.filename,
+        message: `${formatBytes(item.fileSizeBytes)} · ${formatMediaDate(item.creationTime)}\n${item.width} x ${item.height}`,
+      });
+    },
+    [showAlert],
+  );
 
   const handleSimilarPress = useCallback(() => {
-    Alert.alert('Similar photos', 'Reviewing similar photos will be available in a future update.');
-  }, []);
+    showAlert({
+      title: 'Similar photos',
+      message: 'Reviewing similar photos will be available in a future update.',
+    });
+  }, [showAlert]);
 
   const handleRetryLoad = useCallback(async () => {
     if (activeAlbumId) {

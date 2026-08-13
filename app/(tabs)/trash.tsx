@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
@@ -10,16 +10,19 @@ import { TrashSelectionBar } from '@/components/trash/TrashSelectionBar';
 import { TrashSummaryCard } from '@/components/trash/TrashSummaryCard';
 import { getTrashTotals, mockTrashItems } from '@/constants/mockTrash';
 import { SETTINGS_ROUTE } from '@/constants/routes';
+import { useAppModal } from '@/contexts/AppModalContext';
+import { useSettings } from '@/contexts/SettingsContext';
 import { theme } from '@/constants/theme';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { formatBytes } from '@/utils/formatBytes';
 
 export default function TrashTabScreen() {
+  const { showAlert, showConfirm } = useAppModal();
+  const { recoveryRetentionDays } = useSettings();
   const { screenTitleSize, settingsButtonSize } = useResponsiveLayout();
   const [items, setItems] = useState(mockTrashItems);
-  const [selectedIds, setSelectedIds] = useState<Set<string>>(
-    () => new Set(mockTrashItems.map((item) => item.id)),
-  );
+  const [isSelecting, setIsSelecting] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
 
   const totals = useMemo(() => getTrashTotals(items), [items]);
 
@@ -34,6 +37,12 @@ export default function TrashTabScreen() {
   );
 
   const toggleItem = useCallback((id: string) => {
+    if (!isSelecting) {
+      setIsSelecting(true);
+      setSelectedIds(new Set([id]));
+      return;
+    }
+
     setSelectedIds((previous) => {
       const next = new Set(previous);
       if (next.has(id)) {
@@ -43,44 +52,55 @@ export default function TrashTabScreen() {
       }
       return next;
     });
-  }, []);
+  }, [isSelecting]);
+
+  const handleSelectPress = useCallback(() => {
+    if (isSelecting) {
+      setIsSelecting(false);
+      setSelectedIds(new Set());
+      return;
+    }
+
+    setIsSelecting(true);
+  }, [isSelecting]);
 
   const handleRestore = useCallback(() => {
     setItems((previous) => previous.filter((item) => !selectedIds.has(item.id)));
     setSelectedIds(new Set());
+    setIsSelecting(false);
   }, [selectedIds]);
 
   const handleDelete = useCallback(() => {
-    Alert.alert(
-      'Delete permanently?',
-      `This will permanently remove ${selectedItems.length} items (${formatBytes(selectedBytes)}).`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            setItems((previous) => previous.filter((item) => !selectedIds.has(item.id)));
-            setSelectedIds(new Set());
-          },
-        },
-      ],
-    );
-  }, [selectedBytes, selectedIds, selectedItems.length]);
+    showConfirm({
+      title: 'Delete permanently?',
+      message: `This will permanently remove ${selectedItems.length} items (${formatBytes(selectedBytes)}).`,
+      confirmText: 'Delete',
+      onConfirm: () => {
+        setItems((previous) => previous.filter((item) => !selectedIds.has(item.id)));
+        setSelectedIds(new Set());
+        setIsSelecting(false);
+      },
+    });
+  }, [selectedBytes, selectedIds, selectedItems.length, showConfirm]);
 
   const handleDeleteAll = useCallback(() => {
-    Alert.alert('Delete all now?', 'All items in Trash will be permanently deleted.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete All',
-        style: 'destructive',
-        onPress: () => {
-          setItems([]);
-          setSelectedIds(new Set());
-        },
+    showConfirm({
+      title: 'Delete all now?',
+      message: 'All items in Trash will be permanently deleted.',
+      confirmText: 'Delete All',
+      onConfirm: () => {
+        setItems([]);
+        setSelectedIds(new Set());
       },
-    ]);
-  }, []);
+    });
+  }, [showConfirm]);
+
+  const handleLearnMore = useCallback(() => {
+    showAlert({
+      title: 'About Trash',
+      message: `Items you remove are kept here for ${recoveryRetentionDays} days. You can restore them anytime before they are permanently deleted.\n\nChange how long items stay in Trash in Settings under Recovery Vault.`,
+    });
+  }, [recoveryRetentionDays, showAlert]);
 
   return (
     <SafeAreaView edges={['top']} style={styles.safeArea}>
@@ -112,27 +132,48 @@ export default function TrashTabScreen() {
             <View style={styles.infoRow}>
               <Ionicons color={theme.colors.accent} name="shield-checkmark-outline" size={18} />
               <Text style={styles.infoText}>
-                Items in Trash are safe and can be restored. They will be permanently deleted after
-                7 days.
+                Items in Trash are safe and can be restored. They will be permanently deleted after{' '}
+                {recoveryRetentionDays} days.
               </Text>
             </View>
-            <Text style={styles.infoLink}>Learn more</Text>
+            <Pressable
+              hitSlop={8}
+              onPress={handleLearnMore}
+              style={({ pressed }) => [pressed && styles.pressed]}
+            >
+              <Text style={styles.infoLink}>Learn more</Text>
+            </Pressable>
           </View>
 
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Recently Removed</Text>
             <View style={styles.sectionActions}>
-              <Text style={styles.selectLabel}>Select</Text>
+              <Pressable
+                hitSlop={8}
+                onPress={handleSelectPress}
+                style={({ pressed }) => [pressed && styles.pressed]}
+              >
+                <Text style={[styles.selectLabel, isSelecting && styles.selectLabelActive]}>
+                  {isSelecting ? 'Cancel' : 'Select'}
+                </Text>
+              </Pressable>
               <Ionicons color={theme.colors.textMuted} name="filter-outline" size={18} />
             </View>
           </View>
 
           {items.length > 0 ? (
-            <TrashItemGrid items={items} onToggleItem={toggleItem} selectedIds={selectedIds} />
+            <TrashItemGrid
+              isSelecting={isSelecting}
+              items={items}
+              onToggleItem={toggleItem}
+              selectedIds={selectedIds}
+            />
           ) : (
             <View style={styles.emptyState}>
               <Text style={styles.emptyTitle}>Trash is empty</Text>
-              <Text style={styles.emptyText}>Deleted items will appear here for 7 days.</Text>
+              <Text style={styles.emptyText}>
+                Deleted items will appear here for {recoveryRetentionDays} days.
+              </Text>
             </View>
           )}
 
@@ -151,12 +192,14 @@ export default function TrashTabScreen() {
           ) : null}
         </ScreenScrollView>
 
-        <TrashSelectionBar
-          onDelete={handleDelete}
-          onRestore={handleRestore}
-          selectedBytes={selectedBytes}
-          selectedCount={selectedItems.length}
-        />
+        {isSelecting ? (
+          <TrashSelectionBar
+            onDelete={handleDelete}
+            onRestore={handleRestore}
+            selectedBytes={selectedBytes}
+            selectedCount={selectedItems.length}
+          />
+        ) : null}
       </View>
     </SafeAreaView>
   );
@@ -240,6 +283,13 @@ const styles = StyleSheet.create({
     color: theme.colors.textMuted,
     fontSize: theme.typography.caption,
     fontWeight: '600',
+  },
+  selectLabelActive: {
+    color: theme.colors.accent,
+    fontWeight: '700',
+  },
+  pressed: {
+    opacity: 0.7,
   },
   scrollInner: {
     gap: theme.spacing.md,
