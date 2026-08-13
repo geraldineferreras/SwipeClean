@@ -8,30 +8,34 @@ import { CleanupSessionProvider } from '@/contexts/CleanupSessionContext';
 import { AppModalProvider } from '@/contexts/AppModalContext';
 import { MediaLibraryProvider } from '@/contexts/MediaLibraryContext';
 import { SettingsProvider } from '@/contexts/SettingsContext';
+import { TrashProvider } from '@/contexts/TrashContext';
 import { theme } from '@/constants/theme';
 
 export default function RootLayout() {
   return (
     <MediaLibraryProvider>
       <SettingsProvider>
-        <CleanupSessionProvider>
-          <AppModalProvider>
-            <GestureHandlerRootView style={styles.root}>
-              <Stack
-                screenOptions={{
-                  headerShown: false,
-                  contentStyle: { backgroundColor: theme.colors.background },
-                  animation: 'slide_from_right',
-                }}
-              >
-                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-                <Stack.Screen name="settings" options={{ headerShown: false }} />
-                <Stack.Screen name="largest-files" options={{ headerShown: false }} />
-              </Stack>
-              <StatusBar style="dark" />
-            </GestureHandlerRootView>
-          </AppModalProvider>
-        </CleanupSessionProvider>
+        <TrashProvider>
+          <CleanupSessionProvider>
+            <AppModalProvider>
+              <GestureHandlerRootView style={styles.root}>
+                <Stack
+                  screenOptions={{
+                    headerShown: false,
+                    contentStyle: { backgroundColor: theme.colors.background },
+                    animation: 'slide_from_right',
+                  }}
+                >
+                  <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                  <Stack.Screen name="settings" options={{ headerShown: false }} />
+                  <Stack.Screen name="largest-files" options={{ headerShown: false }} />
+                  <Stack.Screen name="storage-breakdown" options={{ headerShown: false }} />
+                </Stack>
+                <StatusBar style="dark" />
+              </GestureHandlerRootView>
+            </AppModalProvider>
+          </CleanupSessionProvider>
+        </TrashProvider>
       </SettingsProvider>
     </MediaLibraryProvider>
   );

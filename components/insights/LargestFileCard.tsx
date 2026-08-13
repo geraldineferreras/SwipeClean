@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { InsightsLargestFile } from '@/constants/insightsData';
 import { theme } from '@/constants/theme';
+import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { formatBytes } from '@/utils/formatBytes';
 
 interface LargestFileCardProps {
@@ -23,6 +24,10 @@ export function LargestFileCard({
   onPress,
   width = '100%',
 }: LargestFileCardProps) {
+  const { scale } = useResponsiveLayout();
+  const checkboxSize = scale(20, 0.2);
+  const inset = scale(6, 0.15);
+
   const content = (
     <>
       <View style={[styles.thumbWrap, isSelecting && isSelected && styles.thumbSelected]}>
@@ -41,7 +46,18 @@ export function LargestFileCard({
           {file.duration ? <Text style={styles.duration}>{file.duration}</Text> : null}
         </View>
         {isSelecting ? (
-          <View style={[styles.checkbox, isSelected && styles.checkboxSelected]}>
+          <View
+            style={[
+              styles.checkbox,
+              {
+                height: checkboxSize,
+                right: inset,
+                top: inset,
+                width: checkboxSize,
+              },
+              isSelected && styles.checkboxSelected,
+            ]}
+          >
             {isSelected ? <Text style={styles.checkmark}>✓</Text> : null}
           </View>
         ) : null}
@@ -89,16 +105,12 @@ const styles = StyleSheet.create({
   },
   checkbox: {
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.92)',
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
     borderColor: '#FFFFFF',
     borderRadius: theme.radius.pill,
     borderWidth: 1.5,
-    height: 22,
     justifyContent: 'center',
     position: 'absolute',
-    right: 8,
-    top: 8,
-    width: 22,
   },
   checkboxSelected: {
     backgroundColor: theme.colors.delete,
@@ -141,16 +153,14 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   thumbSelected: {
-    borderColor: 'rgba(239, 68, 68, 0.55)',
-    borderRadius: theme.radius.sm,
-    borderWidth: 2,
+    borderColor: 'rgba(239, 68, 68, 0.45)',
   },
   thumbWrap: {
     aspectRatio: 0.78,
     backgroundColor: theme.colors.border,
     borderColor: 'transparent',
     borderRadius: theme.radius.sm,
-    borderWidth: 2,
+    borderWidth: 1.5,
     overflow: 'hidden',
     width: '100%',
   },

@@ -4,19 +4,19 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ScreenScrollView } from '@/components/layout/ScreenScrollView';
+import { SavingsSparkline } from '@/components/home/SavingsSparkline';
 import { StorageOverviewCard } from '@/components/insights/StorageOverviewCard';
+import { StorageSpaceRow } from '@/components/insights/StorageSpaceRow';
 import {
   INSIGHTS_RECOVERED_BYTES,
   INSIGHTS_SESSION_COUNT,
   INSIGHTS_SPACE_ROWS,
 } from '@/constants/insightsData';
 import { mockLibrarySummary } from '@/constants/mockLibraryStats';
-import { SETTINGS_ROUTE } from '@/constants/routes';
+import { SETTINGS_ROUTE, STORAGE_BREAKDOWN_ROUTE } from '@/constants/routes';
 import { theme } from '@/constants/theme';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { formatBytes, formatCount } from '@/utils/formatBytes';
-
-const SPARKLINE = [10, 14, 12, 18, 16, 22, 20, 28];
 
 export default function InsightsTabScreen() {
   const {
@@ -73,19 +73,8 @@ export default function InsightsTabScreen() {
                 <Text style={styles.recoveredMeta}>From {INSIGHTS_SESSION_COUNT} cleanup sessions</Text>
               </View>
             </View>
-            <View style={styles.sparkline}>
-              {SPARKLINE.map((height, index) => (
-                <View
-                  key={index}
-                  style={[
-                    styles.sparkBar,
-                    {
-                      backgroundColor: index >= SPARKLINE.length - 2 ? theme.colors.savings : '#86EFAC',
-                      height,
-                    },
-                  ]}
-                />
-              ))}
+            <View style={styles.sparklineWrap}>
+              <SavingsSparkline height={scale(44)} width={scale(76)} />
             </View>
           </View>
           <Text style={styles.recoveredDelta}>↑ +{formatBytes(INSIGHTS_RECOVERED_BYTES)} vs last 7 days</Text>
@@ -94,7 +83,13 @@ export default function InsightsTabScreen() {
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Text style={styles.cardTitle}>What&apos;s taking up space?</Text>
-            <Text style={styles.cardLink}>View All</Text>
+            <Pressable
+              hitSlop={8}
+              onPress={() => router.push(STORAGE_BREAKDOWN_ROUTE)}
+              style={({ pressed }) => [styles.linkButton, pressed && styles.pressed]}
+            >
+              <Text style={styles.cardLink}>View All</Text>
+            </Pressable>
           </View>
 
           <View style={styles.spaceLayout}>
@@ -109,27 +104,15 @@ export default function InsightsTabScreen() {
 
             <View style={styles.spaceList}>
               {INSIGHTS_SPACE_ROWS.map((row) => (
-                <View key={row.label} style={styles.spaceRow}>
-                  <View style={[styles.spaceIcon, { backgroundColor: row.softColor }]}>
-                    <Ionicons color={row.color} name={row.icon} size={16} />
-                  </View>
-                  <View style={styles.spaceContent}>
-                    <View style={styles.spaceTopRow}>
-                      <Text numberOfLines={1} style={styles.spaceLabel}>
-                        {row.label}
-                      </Text>
-                      <Text style={styles.spaceMeta}>
-                        {formatBytes(row.bytes)} · {row.percent}%
-                      </Text>
-                    </View>
-                    <View style={styles.spaceTrack}>
-                      <View
-                        style={[styles.spaceFill, { backgroundColor: row.color, width: `${row.percent}%` }]}
-                      />
-                    </View>
-                  </View>
-                  <Ionicons color={theme.colors.textMuted} name="chevron-forward" size={16} />
-                </View>
+                <StorageSpaceRow
+                  bytes={row.bytes}
+                  color={row.color}
+                  icon={row.icon}
+                  key={row.label}
+                  label={row.label}
+                  percent={row.percent}
+                  softColor={row.softColor}
+                />
               ))}
             </View>
           </View>
@@ -269,6 +252,11 @@ const styles = StyleSheet.create({
     gap: theme.spacing.xs,
     paddingRight: theme.spacing.md,
   },
+  linkButton: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 4,
+  },
   miniDonut: {
     alignItems: 'center',
     alignSelf: 'center',
@@ -328,6 +316,9 @@ const styles = StyleSheet.create({
     color: theme.colors.savings,
     fontWeight: '800',
   },
+  pressed: {
+    opacity: 0.85,
+  },
   safeArea: {
     backgroundColor: theme.colors.background,
     flex: 1,
@@ -341,68 +332,16 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     justifyContent: 'center',
   },
-  spaceFill: {
-    borderRadius: theme.radius.pill,
-    height: '100%',
-  },
-  spaceIcon: {
+  sparklineWrap: {
     alignItems: 'center',
-    borderRadius: 10,
-    height: 32,
+    flexShrink: 0,
     justifyContent: 'center',
-    width: 32,
-  },
-  spaceLabel: {
-    color: theme.colors.textPrimary,
-    flex: 1,
-    fontSize: theme.typography.caption,
-    fontWeight: '600',
-    minWidth: 0,
-  },
-  spaceContent: {
-    flex: 1,
-    gap: 4,
-    minWidth: 0,
   },
   spaceLayout: {
     gap: theme.spacing.sm,
   },
   spaceList: {
     gap: theme.spacing.sm,
-  },
-  spaceMeta: {
-    color: theme.colors.textMuted,
-    flexShrink: 0,
-    fontSize: 10,
-    fontWeight: '600',
-  },
-  spaceRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: theme.spacing.sm,
-  },
-  spaceTopRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: theme.spacing.sm,
-    justifyContent: 'space-between',
-  },
-  spaceTrack: {
-    backgroundColor: theme.colors.border,
-    borderRadius: theme.radius.pill,
-    height: 5,
-    overflow: 'hidden',
-  },
-  sparkBar: {
-    borderRadius: 4,
-    width: 5,
-  },
-  sparkline: {
-    alignItems: 'flex-end',
-    flexDirection: 'row',
-    gap: 3,
-    height: 32,
-    justifyContent: 'flex-end',
   },
   statIcon: {
     alignItems: 'center',

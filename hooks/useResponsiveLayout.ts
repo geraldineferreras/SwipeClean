@@ -37,7 +37,7 @@ export function useResponsiveLayout() {
   const font = (size: number, factor?: number) => moderateScale(size, width, factor);
 
   const tabBarOffset = TAB_BAR_HEIGHT + (Platform.OS === 'ios' ? insets.bottom : Math.max(insets.bottom, 8));
-  const scrollBottomPadding = tabBarOffset + theme.spacing.lg;
+  const scrollBottomPadding = tabBarOffset + theme.spacing.xl;
 
   const statGap = theme.spacing.sm;
   const statInnerWidth = Math.min(width, MAX_CONTENT_WIDTH) - contentPadding * 2;

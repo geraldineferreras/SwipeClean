@@ -1,43 +1,43 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { LargestFileCard } from '@/components/insights/LargestFileCard';
+import { LargestFileGrid } from '@/components/insights/LargestFileGrid';
 import { LargestFilePreviewOverlay } from '@/components/insights/LargestFilePreviewOverlay';
 import { LargestFilesSelectionBar } from '@/components/insights/LargestFilesSelectionBar';
-import { ScreenFrame } from '@/components/layout/ScreenFrame';
-import { INSIGHTS_LARGEST_FILES, type InsightsLargestFile } from '@/constants/insightsData';
+import { ScreenScrollView } from '@/components/layout/ScreenScrollView';
+import type { InsightsLargestFile } from '@/constants/insightsData';
 import { theme } from '@/constants/theme';
 import { useAppModal } from '@/contexts/AppModalContext';
+import { useTrash } from '@/contexts/TrashContext';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { formatBytes, formatCount } from '@/utils/formatBytes';
 
 export default function LargestFilesScreen() {
   const { showConfirm } = useAppModal();
-  const { contentPadding, isTablet, settingsButtonSize } = useResponsiveLayout();
-  const columns = isTablet ? 3 : 2;
-  const cellWidth = `${100 / columns}%` as `${number}%`;
+  const { largestFiles, moveLargestFilesToTrash } = useTrash();
+  const { settingsButtonSize } = useResponsiveLayout();
 
-  const [files, setFiles] = useState<InsightsLargestFile[]>(INSIGHTS_LARGEST_FILES);
   const [isSelecting, setIsSelecting] = useState(false);
   const [selectedFilenames, setSelectedFilenames] = useState<Set<string>>(() => new Set());
   const [previewFile, setPreviewFile] = useState<InsightsLargestFile | null>(null);
 
-  const totalBytes = useMemo(() => files.reduce((sum, file) => sum + file.bytes, 0), [files]);
+  const totalBytes = useMemo(
+    () => largestFiles.reduce((sum, file) => sum + file.bytes, 0),
+    [largestFiles],
+  );
 
   const selectedFiles = useMemo(
-    () => files.filter((file) => selectedFilenames.has(file.filename)),
-    [files, selectedFilenames],
+    () => largestFiles.filter((file) => selectedFilenames.has(file.filename)),
+    [largestFiles, selectedFilenames],
   );
 
   const selectedBytes = useMemo(
     () => selectedFiles.reduce((sum, file) => sum + file.bytes, 0),
     [selectedFiles],
   );
-
-  const allSelected = files.length > 0 && selectedFilenames.size === files.length;
 
   const handleSelectPress = useCallback(() => {
     if (isSelecting) {
@@ -47,20 +47,8 @@ export default function LargestFilesScreen() {
     }
 
     setIsSelecting(true);
-  }, [isSelecting]);
-
-  const handleSelectAll = useCallback(() => {
-    if (!isSelecting) {
-      setIsSelecting(true);
-    }
-
-    if (allSelected) {
-      setSelectedFilenames(new Set());
-      return;
-    }
-
-    setSelectedFilenames(new Set(files.map((file) => file.filename)));
-  }, [allSelected, files, isSelecting]);
+    setSelectedFilenames(new Set(largestFiles.map((file) => file.filename)));
+  }, [largestFiles, isSelecting]);
 
   const toggleFile = useCallback(
     (filename: string) => {
@@ -99,19 +87,21 @@ export default function LargestFilesScreen() {
       message: `This will move ${selectedFiles.length} ${itemLabel} (${formatBytes(selectedBytes)}) to Trash.`,
       confirmText: 'Remove',
       onConfirm: () => {
-        setFiles((previous) =>
-          previous.filter((file) => !selectedFilenames.has(file.filename)),
-        );
+        moveLargestFilesToTrash(selectedFiles);
         setSelectedFilenames(new Set());
         setIsSelecting(false);
       },
     });
-  }, [selectedBytes, selectedFilenames, selectedFiles.length, showConfirm]);
+  }, [moveLargestFilesToTrash, selectedBytes, selectedFiles, showConfirm]);
 
   return (
     <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
-      <ScreenFrame>
-        <View style={styles.shell}>
+      <View style={styles.container}>
+        <ScreenScrollView
+          innerStyle={styles.scrollInner}
+          showsVerticalScrollIndicator={false}
+          style={styles.flex}
+        >
           <View style={styles.header}>
             <Pressable
               accessibilityLabel="Go back"
@@ -128,70 +118,52 @@ export default function LargestFilesScreen() {
             <View style={styles.headerText}>
               <Text style={styles.title}>Largest Files</Text>
               <Text style={styles.subtitle}>
-                {formatCount(files.length)} files · {formatBytes(totalBytes)}
+                {formatCount(largestFiles.length)} files · {formatBytes(totalBytes)}
               </Text>
             </View>
-            <Pressable
-              hitSlop={8}
-              onPress={handleSelectPress}
-              style={({ pressed }) => [
-                styles.selectButton,
-                { minHeight: settingsButtonSize },
-                pressed && styles.pressed,
-              ]}
-            >
-              <Text style={[styles.selectLabel, isSelecting && styles.selectLabelActive]}>
-                {isSelecting ? 'Cancel' : 'Select'}
-              </Text>
-            </Pressable>
+            <View style={{ height: settingsButtonSize, width: settingsButtonSize }} />
           </View>
 
-          {isSelecting && files.length > 0 ? (
-            <View style={[styles.selectAllRow, { paddingHorizontal: contentPadding }]}>
-              <Pressable hitSlop={8} onPress={handleSelectAll} style={styles.selectAllButton}>
-                <Text style={styles.selectAllLabel}>
-                  {allSelected ? 'Deselect All' : 'Select All'}
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>All Files</Text>
+            <View style={styles.sectionActions}>
+              <Pressable
+                hitSlop={8}
+                onPress={handleSelectPress}
+                style={({ pressed }) => [pressed && styles.pressed]}
+              >
+                <Text style={[styles.selectLabel, isSelecting && styles.selectLabelActive]}>
+                  {isSelecting ? 'Cancel' : 'Select'}
                 </Text>
               </Pressable>
+              <Ionicons color={theme.colors.textMuted} name="filter-outline" size={18} />
             </View>
-          ) : null}
+          </View>
 
-          <ScrollView
-            contentContainerStyle={[styles.content, { paddingHorizontal: contentPadding }]}
-            showsVerticalScrollIndicator={false}
-            style={styles.scroll}
-          >
-            {files.length > 0 ? (
-              <View style={styles.grid}>
-                {files.map((file) => (
-                  <View key={file.filename} style={[styles.cell, { width: cellWidth }]}>
-                    <LargestFileCard
-                      file={file}
-                      isSelected={selectedFilenames.has(file.filename)}
-                      isSelecting={isSelecting}
-                      onLongPress={() => handlePreview(file)}
-                      onPress={() => toggleFile(file.filename)}
-                    />
-                  </View>
-                ))}
-              </View>
-            ) : (
-              <View style={styles.emptyState}>
-                <Text style={styles.emptyTitle}>No large files left</Text>
-                <Text style={styles.emptyText}>Removed files were moved to Trash.</Text>
-              </View>
-            )}
-          </ScrollView>
-
-          {isSelecting ? (
-            <LargestFilesSelectionBar
-              onRemove={handleRemove}
-              selectedBytes={selectedBytes}
-              selectedCount={selectedFiles.length}
+          {largestFiles.length > 0 ? (
+            <LargestFileGrid
+              files={largestFiles}
+              isSelecting={isSelecting}
+              onPreviewFile={handlePreview}
+              onToggleFile={toggleFile}
+              selectedFilenames={selectedFilenames}
             />
-          ) : null}
-        </View>
-      </ScreenFrame>
+          ) : (
+            <View style={styles.emptyState}>
+              <Text style={styles.emptyTitle}>No large files left</Text>
+              <Text style={styles.emptyText}>Removed files were moved to Trash.</Text>
+            </View>
+          )}
+        </ScreenScrollView>
+
+        {isSelecting ? (
+          <LargestFilesSelectionBar
+            onRemove={handleRemove}
+            selectedBytes={selectedBytes}
+            selectedCount={selectedFiles.length}
+          />
+        ) : null}
+      </View>
 
       <LargestFilePreviewOverlay
         file={previewFile}
@@ -209,14 +181,11 @@ const styles = StyleSheet.create({
     borderColor: theme.colors.border,
     borderRadius: theme.radius.md,
     borderWidth: 1,
+    flexShrink: 0,
     justifyContent: 'center',
   },
-  cell: {
-    padding: 6,
-  },
-  content: {
-    paddingBottom: theme.spacing.lg,
-    paddingTop: theme.spacing.sm,
+  container: {
+    flex: 1,
   },
   emptyState: {
     alignItems: 'center',
@@ -233,16 +202,14 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.subtitle,
     fontWeight: '700',
   },
-  grid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+  flex: {
+    flex: 1,
   },
   header: {
     alignItems: 'center',
     flexDirection: 'row',
     gap: theme.spacing.sm,
     justifyContent: 'space-between',
-    paddingTop: theme.spacing.sm,
   },
   headerText: {
     alignItems: 'center',
@@ -251,33 +218,30 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   pressed: {
-    opacity: 0.85,
+    opacity: 0.7,
   },
   safeArea: {
     backgroundColor: theme.colors.background,
     flex: 1,
   },
-  scroll: {
-    flex: 1,
+  scrollInner: {
+    gap: theme.spacing.md,
+    paddingBottom: theme.spacing.md,
   },
-  selectAllButton: {
-    alignSelf: 'flex-start',
-    paddingVertical: theme.spacing.xs,
-  },
-  selectAllLabel: {
-    color: theme.colors.accent,
-    fontSize: theme.typography.caption,
-    fontWeight: '700',
-  },
-  selectAllRow: {
-    paddingBottom: theme.spacing.xs,
-    paddingTop: theme.spacing.xs,
-  },
-  selectButton: {
+  sectionActions: {
     alignItems: 'center',
-    justifyContent: 'center',
-    minWidth: 56,
-    paddingHorizontal: theme.spacing.sm,
+    flexDirection: 'row',
+    gap: theme.spacing.sm,
+  },
+  sectionHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  sectionTitle: {
+    color: theme.colors.textPrimary,
+    fontSize: theme.typography.body,
+    fontWeight: '700',
   },
   selectLabel: {
     color: theme.colors.textMuted,
@@ -288,17 +252,16 @@ const styles = StyleSheet.create({
     color: theme.colors.accent,
     fontWeight: '700',
   },
-  shell: {
-    flex: 1,
-  },
   subtitle: {
     color: theme.colors.textSecondary,
     fontSize: theme.typography.caption,
     fontWeight: '600',
+    textAlign: 'center',
   },
   title: {
     color: theme.colors.textPrimary,
     fontSize: theme.typography.subtitle,
     fontWeight: '800',
+    textAlign: 'center',
   },
 });

@@ -8,10 +8,11 @@ import { ScreenScrollView } from '@/components/layout/ScreenScrollView';
 import { TrashItemGrid } from '@/components/trash/TrashItemGrid';
 import { TrashSelectionBar } from '@/components/trash/TrashSelectionBar';
 import { TrashSummaryCard } from '@/components/trash/TrashSummaryCard';
-import { getTrashTotals, mockTrashItems } from '@/constants/mockTrash';
+import { getTrashTotals } from '@/constants/mockTrash';
 import { SETTINGS_ROUTE } from '@/constants/routes';
 import { useAppModal } from '@/contexts/AppModalContext';
 import { useSettings } from '@/contexts/SettingsContext';
+import { useTrash } from '@/contexts/TrashContext';
 import { theme } from '@/constants/theme';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { formatBytes } from '@/utils/formatBytes';
@@ -19,8 +20,8 @@ import { formatBytes } from '@/utils/formatBytes';
 export default function TrashTabScreen() {
   const { showAlert, showConfirm } = useAppModal();
   const { recoveryRetentionDays } = useSettings();
+  const { items, permanentlyDelete, restoreFromTrash } = useTrash();
   const { screenTitleSize, settingsButtonSize } = useResponsiveLayout();
-  const [items, setItems] = useState(mockTrashItems);
   const [isSelecting, setIsSelecting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() => new Set());
 
@@ -62,13 +63,14 @@ export default function TrashTabScreen() {
     }
 
     setIsSelecting(true);
-  }, [isSelecting]);
+    setSelectedIds(new Set(items.map((item) => item.id)));
+  }, [isSelecting, items]);
 
   const handleRestore = useCallback(() => {
-    setItems((previous) => previous.filter((item) => !selectedIds.has(item.id)));
+    restoreFromTrash([...selectedIds]);
     setSelectedIds(new Set());
     setIsSelecting(false);
-  }, [selectedIds]);
+  }, [restoreFromTrash, selectedIds]);
 
   const handleDelete = useCallback(() => {
     showConfirm({
@@ -76,12 +78,12 @@ export default function TrashTabScreen() {
       message: `This will permanently remove ${selectedItems.length} items (${formatBytes(selectedBytes)}).`,
       confirmText: 'Delete',
       onConfirm: () => {
-        setItems((previous) => previous.filter((item) => !selectedIds.has(item.id)));
+        permanentlyDelete([...selectedIds]);
         setSelectedIds(new Set());
         setIsSelecting(false);
       },
     });
-  }, [selectedBytes, selectedIds, selectedItems.length, showConfirm]);
+  }, [permanentlyDelete, selectedBytes, selectedIds, selectedItems.length, showConfirm]);
 
   const handleDeleteAll = useCallback(() => {
     showConfirm({
@@ -89,11 +91,12 @@ export default function TrashTabScreen() {
       message: 'All items in Trash will be permanently deleted.',
       confirmText: 'Delete All',
       onConfirm: () => {
-        setItems([]);
+        permanentlyDelete(items.map((item) => item.id));
         setSelectedIds(new Set());
+        setIsSelecting(false);
       },
     });
-  }, [showConfirm]);
+  }, [items, permanentlyDelete, showConfirm]);
 
   const handleLearnMore = useCallback(() => {
     showAlert({

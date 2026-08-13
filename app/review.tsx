@@ -13,6 +13,7 @@ import { ConfirmDialog } from '@/components/ui/ConfirmDialog';
 import { HOME_ROUTE } from '@/constants/routes';
 import { theme } from '@/constants/theme';
 import { useCleanupSessionContext } from '@/contexts/CleanupSessionContext';
+import { useTrash } from '@/contexts/TrashContext';
 import { deleteMarkedAssets } from '@/services/deletionService';
 import type { CleanupSessionItem } from '@/types/cleanup';
 import { formatBytes } from '@/utils/formatBytes';
@@ -29,6 +30,7 @@ export default function ReviewScreen() {
   const [previewItem, setPreviewItem] = useState<CleanupSessionItem | null>(null);
   const { markedForDeletion, resetSession, setLastCleanupResult } =
     useCleanupSessionContext();
+  const { addSessionItemsToTrash } = useTrash();
 
   const [selectedIds, setSelectedIds] = useState<Set<string>>(() =>
     buildSelectedSet(markedForDeletion),
@@ -108,9 +110,11 @@ export default function ReviewScreen() {
       videoCount,
       freedBytes: totalBytes,
     });
+    addSessionItemsToTrash(selectedItems);
     resetSession();
     router.replace('/complete');
   }, [
+    addSessionItemsToTrash,
     photoCount,
     resetSession,
     selectedItems,

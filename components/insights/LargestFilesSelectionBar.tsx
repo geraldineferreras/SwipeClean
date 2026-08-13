@@ -30,7 +30,7 @@ export function LargestFilesSelectionBar({
           <Ionicons color={theme.colors.delete} name="checkmark-circle" size={18} />
           <View style={styles.summaryText}>
             <Text numberOfLines={1} style={styles.summaryTitle}>
-              {formatCount(selectedCount)} selected
+              {formatCount(selectedCount)} items selected
             </Text>
             <FormattedBytes bytes={selectedBytes} style={styles.summaryMeta} />
           </View>

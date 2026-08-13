@@ -13,13 +13,13 @@ import Animated, {
 import { LargestFileCard } from '@/components/insights/LargestFileCard';
 import {
   INSIGHTS_CATEGORY_DETAIL_ROWS,
-  INSIGHTS_LARGEST_FILES,
   INSIGHTS_LARGEST_FILES_PREVIEW_COUNT,
   INSIGHTS_STORAGE_SEGMENTS,
 } from '@/constants/insightsData';
 import { LARGEST_FILES_ROUTE } from '@/constants/routes';
 import { mockLibrarySummary } from '@/constants/mockLibraryStats';
 import { theme } from '@/constants/theme';
+import { useTrash } from '@/contexts/TrashContext';
 import { formatBytes, formatCount } from '@/utils/formatBytes';
 
 interface StorageOverviewCardProps {
@@ -40,6 +40,7 @@ export function StorageOverviewCard({
   const [isExpanded, setIsExpanded] = useState(false);
   const [showPercent, setShowPercent] = useState(false);
   const expansion = useSharedValue(0);
+  const { largestFiles } = useTrash();
 
   const availableBytes =
     mockLibrarySummary.totalStorageBytes - mockLibrarySummary.storageUsedBytes;
@@ -68,7 +69,7 @@ export function StorageOverviewCard({
     router.push(LARGEST_FILES_ROUTE);
   }, []);
 
-  const previewFiles = INSIGHTS_LARGEST_FILES.slice(0, INSIGHTS_LARGEST_FILES_PREVIEW_COUNT);
+  const previewFiles = largestFiles.slice(0, INSIGHTS_LARGEST_FILES_PREVIEW_COUNT);
 
   const detailsStyle = useAnimatedStyle(() => ({
     maxHeight: interpolate(expansion.value, [0, 1], [0, DETAILS_MAX_HEIGHT]),
