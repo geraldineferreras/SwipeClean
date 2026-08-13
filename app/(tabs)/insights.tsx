@@ -4,11 +4,11 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ScreenScrollView } from '@/components/layout/ScreenScrollView';
+import { StorageOverviewCard } from '@/components/insights/StorageOverviewCard';
 import {
   INSIGHTS_RECOVERED_BYTES,
   INSIGHTS_SESSION_COUNT,
   INSIGHTS_SPACE_ROWS,
-  INSIGHTS_STORAGE_SEGMENTS,
 } from '@/constants/insightsData';
 import { mockLibrarySummary } from '@/constants/mockLibraryStats';
 import { SETTINGS_ROUTE } from '@/constants/routes';
@@ -33,12 +33,6 @@ export default function InsightsTabScreen() {
   const donutInnerSize = scale(isTablet ? 96 : 88);
   const miniDonutSize = scale(72);
 
-  const availableBytes =
-    mockLibrarySummary.totalStorageBytes - mockLibrarySummary.storageUsedBytes;
-  const availablePercent = Math.round(
-    (availableBytes / mockLibrarySummary.totalStorageBytes) * 100,
-  );
-
   return (
     <SafeAreaView edges={['top']} style={styles.safeArea}>
       <ScreenScrollView innerStyle={styles.content} showsVerticalScrollIndicator={false}>
@@ -58,60 +52,12 @@ export default function InsightsTabScreen() {
           </Pressable>
         </View>
 
-        <View style={styles.card}>
-          <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>Storage Overview</Text>
-            <Text style={styles.cardLink}>View Details</Text>
-          </View>
-
-          <View style={[styles.storageRow, isTablet && styles.storageRowTablet]}>
-            <View style={[styles.donutWrap, { height: donutSize, width: donutSize }]}>
-              <View
-                style={[
-                  styles.donutTrack,
-                  { borderRadius: donutSize / 2, height: donutSize, width: donutSize },
-                ]}
-              />
-              <View
-                style={[
-                  styles.donutInner,
-                  { borderRadius: donutInnerSize / 2, height: donutInnerSize, width: donutInnerSize },
-                ]}
-              >
-                <Text style={[styles.donutValue, { fontSize: font(13) }]}>
-                  {formatBytes(mockLibrarySummary.storageUsedBytes)}
-                </Text>
-                <Text style={styles.donutCaption}>
-                  used of {formatBytes(mockLibrarySummary.totalStorageBytes)}
-                </Text>
-              </View>
-            </View>
-
-            <View style={styles.legendColumn}>
-              {INSIGHTS_STORAGE_SEGMENTS.map((segment) => (
-                <View key={segment.label} style={styles.legendRow}>
-                  <View style={[styles.legendDot, { backgroundColor: segment.color }]} />
-                  <View style={styles.legendTextBlock}>
-                    <Text numberOfLines={1} style={styles.legendLabel}>
-                      {segment.label}
-                    </Text>
-                    <Text style={styles.legendValue}>
-                      {formatBytes(segment.bytes)} · {segment.percent}%
-                    </Text>
-                  </View>
-                </View>
-              ))}
-            </View>
-          </View>
-
-          <View style={styles.availableRow}>
-            <Ionicons color={theme.colors.textMuted} name="phone-portrait-outline" size={16} />
-            <Text style={styles.availableText}>{formatBytes(availableBytes)} available</Text>
-            <View style={styles.availableTrack}>
-              <View style={[styles.availableFill, { width: `${availablePercent}%` }]} />
-            </View>
-          </View>
-        </View>
+        <StorageOverviewCard
+          donutInnerSize={donutInnerSize}
+          donutSize={donutSize}
+          font={font}
+          isTablet={isTablet}
+        />
 
         <View style={styles.recoveredCard}>
           <View style={styles.recoveredTop}>
@@ -286,29 +232,6 @@ function StatTile({
 }
 
 const styles = StyleSheet.create({
-  availableFill: {
-    backgroundColor: theme.colors.border,
-    borderRadius: theme.radius.pill,
-    height: '100%',
-  },
-  availableRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: theme.spacing.sm,
-    marginTop: theme.spacing.md,
-  },
-  availableText: {
-    color: theme.colors.textSecondary,
-    fontSize: theme.typography.caption,
-    fontWeight: '600',
-  },
-  availableTrack: {
-    backgroundColor: '#E5E7EB',
-    borderRadius: theme.radius.pill,
-    flex: 1,
-    height: 6,
-    overflow: 'hidden',
-  },
   card: {
     backgroundColor: theme.colors.surface,
     borderColor: theme.colors.border,
@@ -336,32 +259,6 @@ const styles = StyleSheet.create({
     gap: theme.spacing.lg,
     paddingTop: theme.spacing.md,
   },
-  donutCaption: {
-    color: theme.colors.textMuted,
-    fontSize: 10,
-    textAlign: 'center',
-  },
-  donutInner: {
-    alignItems: 'center',
-    backgroundColor: theme.colors.surface,
-    justifyContent: 'center',
-    paddingHorizontal: theme.spacing.sm,
-  },
-  donutTrack: {
-    borderColor: theme.colors.accentRing,
-    borderWidth: 10,
-    position: 'absolute',
-  },
-  donutValue: {
-    color: theme.colors.textPrimary,
-    fontWeight: '800',
-    textAlign: 'center',
-  },
-  donutWrap: {
-    alignItems: 'center',
-    flexShrink: 0,
-    justifyContent: 'center',
-  },
   header: {
     alignItems: 'flex-start',
     flexDirection: 'row',
@@ -371,36 +268,6 @@ const styles = StyleSheet.create({
     flex: 1,
     gap: theme.spacing.xs,
     paddingRight: theme.spacing.md,
-  },
-  legendColumn: {
-    flex: 1,
-    gap: theme.spacing.sm,
-    minWidth: 0,
-    paddingLeft: theme.spacing.md,
-  },
-  legendDot: {
-    borderRadius: theme.radius.pill,
-    height: 8,
-    width: 8,
-  },
-  legendLabel: {
-    color: theme.colors.textPrimary,
-    fontSize: theme.typography.caption,
-    fontWeight: '600',
-  },
-  legendRow: {
-    alignItems: 'flex-start',
-    flexDirection: 'row',
-    gap: theme.spacing.sm,
-  },
-  legendTextBlock: {
-    flex: 1,
-    gap: 2,
-    minWidth: 0,
-  },
-  legendValue: {
-    color: theme.colors.textMuted,
-    fontSize: theme.typography.caption,
   },
   miniDonut: {
     alignItems: 'center',
@@ -614,13 +481,6 @@ const styles = StyleSheet.create({
     color: theme.colors.textPrimary,
     fontSize: theme.typography.body,
     fontWeight: '700',
-  },
-  storageRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-  },
-  storageRowTablet: {
-    alignItems: 'flex-start',
   },
   title: {
     color: theme.colors.textPrimary,

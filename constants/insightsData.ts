@@ -66,3 +66,152 @@ export const INSIGHTS_SPACE_ROWS = [
 
 export const INSIGHTS_RECOVERED_BYTES = 843 * 1024 ** 2;
 export const INSIGHTS_SESSION_COUNT = 27;
+
+export interface InsightsCategoryDetailRow {
+  label: string;
+  count: number;
+  bytes: number;
+  percent: number;
+  color: string;
+  softColor: string;
+  icon: IoniconName;
+}
+
+export const INSIGHTS_CATEGORY_DETAIL_ROWS: InsightsCategoryDetailRow[] = [
+  {
+    label: 'Photos',
+    count: 3284,
+    bytes: 6.1 * 1024 ** 3,
+    percent: 49,
+    color: '#2563EB',
+    softColor: '#EFF6FF',
+    icon: 'image-outline',
+  },
+  {
+    label: 'Videos',
+    count: 487,
+    bytes: 4.3 * 1024 ** 3,
+    percent: 35,
+    color: '#7C3AED',
+    softColor: '#F5F3FF',
+    icon: 'videocam-outline',
+  },
+  {
+    label: 'Screenshots',
+    count: 487,
+    bytes: 1.2 * 1024 ** 3,
+    percent: 10,
+    color: '#10B981',
+    softColor: '#ECFDF5',
+    icon: 'crop-outline',
+  },
+  {
+    label: 'Duplicates',
+    count: 128,
+    bytes: 850 * 1024 ** 2,
+    percent: 7,
+    color: '#EA580C',
+    softColor: '#FFF7ED',
+    icon: 'copy-outline',
+  },
+  {
+    label: 'Blurry Photos',
+    count: 42,
+    bytes: 210 * 1024 ** 2,
+    percent: 2,
+    color: '#DB2777',
+    softColor: '#FDF2F8',
+    icon: 'eye-off-outline',
+  },
+  {
+    label: 'Others',
+    count: 0,
+    bytes: 0.8 * 1024 ** 3,
+    percent: 6,
+    color: '#14B8A6',
+    softColor: '#F0FDFA',
+    icon: 'folder-outline',
+  },
+];
+
+export interface InsightsLargestFile {
+  filename: string;
+  bytes: number;
+  duration?: string;
+  is4k?: boolean;
+  mediaType: 'photo' | 'video';
+  thumbnailUri: string;
+}
+
+export const INSIGHTS_LARGEST_FILES: InsightsLargestFile[] = [
+  {
+    filename: 'VID_20250722.mp4',
+    bytes: 428 * 1024 ** 2,
+    duration: '01:32',
+    is4k: true,
+    mediaType: 'video',
+    thumbnailUri: 'https://picsum.photos/seed/insights-vid1/320/420',
+  },
+  {
+    filename: 'IMG_20250715.HEIC',
+    bytes: 18 * 1024 ** 2,
+    mediaType: 'photo',
+    thumbnailUri: 'https://picsum.photos/seed/insights-img1/320/420',
+  },
+  {
+    filename: 'VID_20250630.mp4',
+    bytes: 312 * 1024 ** 2,
+    duration: '00:48',
+    is4k: true,
+    mediaType: 'video',
+    thumbnailUri: 'https://picsum.photos/seed/insights-vid2/320/420',
+  },
+  {
+    filename: 'IMG_20250612.HEIC',
+    bytes: 14 * 1024 ** 2,
+    mediaType: 'photo',
+    thumbnailUri: 'https://picsum.photos/seed/insights-img2/320/420',
+  },
+  {
+    filename: 'VID_20250518.mp4',
+    bytes: 286 * 1024 ** 2,
+    duration: '02:14',
+    is4k: true,
+    mediaType: 'video',
+    thumbnailUri: 'https://picsum.photos/seed/insights-vid3/320/420',
+  },
+  {
+    filename: 'IMG_20250502.HEIC',
+    bytes: 16 * 1024 ** 2,
+    mediaType: 'photo',
+    thumbnailUri: 'https://picsum.photos/seed/insights-img3/320/420',
+  },
+  {
+    filename: 'VID_20250411.mp4',
+    bytes: 245 * 1024 ** 2,
+    duration: '01:05',
+    mediaType: 'video',
+    thumbnailUri: 'https://picsum.photos/seed/insights-vid4/320/420',
+  },
+  {
+    filename: 'IMG_20250327.HEIC',
+    bytes: 12 * 1024 ** 2,
+    mediaType: 'photo',
+    thumbnailUri: 'https://picsum.photos/seed/insights-img4/320/420',
+  },
+  {
+    filename: 'VID_20250308.mp4',
+    bytes: 198 * 1024 ** 2,
+    duration: '00:36',
+    mediaType: 'video',
+    thumbnailUri: 'https://picsum.photos/seed/insights-vid5/320/420',
+  },
+  {
+    filename: 'IMG_20250219.HEIC',
+    bytes: 11 * 1024 ** 2,
+    mediaType: 'photo',
+    thumbnailUri: 'https://picsum.photos/seed/insights-img5/320/420',
+  },
+];
+
+export const INSIGHTS_LARGEST_FILES_PREVIEW_COUNT = 4;
