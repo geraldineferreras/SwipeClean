@@ -4,19 +4,11 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { FormattedBytes } from '@/components/shared/FormattedBytes';
+import { PartyPopperHero } from '@/components/complete/PartyPopperHero';
 import { ALBUMS_TAB_ROUTE, HOME_ROUTE, TRASH_TAB_ROUTE } from '@/constants/routes';
 import { theme } from '@/constants/theme';
 import { useCleanupSessionContext } from '@/contexts/CleanupSessionContext';
 import { formatCount } from '@/utils/formatBytes';
-
-const CONFETTI = [
-  { color: '#60A5FA', left: 18, top: 8 },
-  { color: '#34D399', right: 24, top: 0 },
-  { color: '#FBBF24', left: 0, top: 42 },
-  { color: '#F472B6', right: 8, top: 36 },
-  { color: '#A78BFA', left: 34, top: 72 },
-  { color: '#FB7185', right: 36, top: 68 },
-] as const;
 
 export default function CompleteScreen() {
   const { lastCleanupResult } = useCleanupSessionContext();
@@ -38,20 +30,7 @@ export default function CompleteScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
-        <View style={styles.hero}>
-          {CONFETTI.map((dot) => (
-            <View
-              key={`${dot.color}-${dot.top}`}
-              style={[
-                styles.confettiDot,
-                { backgroundColor: dot.color, left: dot.left, right: dot.right, top: dot.top },
-              ]}
-            />
-          ))}
-          <View style={styles.checkCircle}>
-            <Ionicons color="#FFFFFF" name="checkmark" size={42} />
-          </View>
-        </View>
+        <PartyPopperHero />
 
         <Text style={styles.title}>All Clean!</Text>
         <Text style={styles.subtitle}>You freed up space</Text>
@@ -123,20 +102,6 @@ function CompleteLinkRow({
 }
 
 const styles = StyleSheet.create({
-  checkCircle: {
-    alignItems: 'center',
-    backgroundColor: theme.colors.keep,
-    borderRadius: 999,
-    height: 96,
-    justifyContent: 'center',
-    width: 96,
-  },
-  confettiDot: {
-    borderRadius: 999,
-    height: 10,
-    position: 'absolute',
-    width: 10,
-  },
   container: {
     alignItems: 'center',
     flex: 1,
@@ -157,13 +122,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: theme.typography.body,
     fontWeight: '700',
-  },
-  hero: {
-    alignItems: 'center',
-    height: 120,
-    justifyContent: 'center',
-    marginBottom: theme.spacing.lg,
-    width: 160,
   },
   linkDivider: {
     backgroundColor: theme.colors.border,
